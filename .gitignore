@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+.vite/
+coverage/
+src-tauri/target/
+
+# Local environment and machine-specific config
+.env
+.env.*
+!.env.example
+*.local
+
+# Local data, generated decks, and Office temp files
+Data/
+presentations/*.pptx
+~$*.docx
+~$*.pptx
+~$*.xlsx
+
+# Logs and diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor noise
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# Local databases and caches
+*.db
+*.sqlite
+*.sqlite3
+.cache/
+
+# Signing material and private keys
+*.key
+*.pem
+*.p12
+*.pfx
