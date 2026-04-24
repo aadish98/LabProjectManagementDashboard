@@ -1195,7 +1195,7 @@ const FOOT = "Lab Workflow · Manager functionality";
   const fy = py + 0.9;
   L.field(pres, s, "Admin spreadsheet ID or URL", "https://docs.google.com/spreadsheets/d/...", px + 0.3, fy, pw - 0.6, t);
   L.field(pres, s, "Google OAuth client ID", "1234567890-abc.apps.googleusercontent.com", px + 0.3, fy + 0.85, pw - 0.6, t);
-  L.field(pres, s, "Manager emails", "rallada@umich.edu, aadishms@umich.edu", px + 0.3, fy + 1.7, pw - 0.6, t);
+  L.field(pres, s, "Manager emails", "pi@lab.edu, manager@lab.edu", px + 0.3, fy + 1.7, pw - 0.6, t);
   L.field(pres, s, "Employee emails", "alex@lab.edu, jamie@lab.edu, pat@lab.edu", px + 0.3, fy + 2.55, pw - 0.6, t);
   // Sheet name fields - smaller in 2 cols
   const fW = (pw - 0.9) / 2;
