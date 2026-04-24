@@ -9,13 +9,16 @@ This project turns the existing Google Apps Script workflow in `Code.gs` into a 
 
 ## What is included
 
-- `Code.gs`: the original Apps Script reference implementation.
+- `Code.gs`: the original Apps Script reference implementation, kept for parity reference.
 - `src/domain/`: typed workflow models and the compliance rules ported from Apps Script.
-- `src/services/googleSheets.ts`: live Google Sheets read/write plus local caching.
-- `src/features/employee/`: employee submission workspace.
-- `src/features/manager/`: manager Kanban dashboard and operational rollups.
+- `src/services/googleSheets.ts`: live Google Sheets read/write plus local caching and overdue-resolution batch updates.
+- `src/services/cache.ts`: per-device `localStorage` for setup, session, dataset cache, manager snapshots, and last-run metadata.
+- `src/utils/date.ts`: timezone-aware date parser and formatter shared by the cards, Gantt, and edit modals.
+- `src/features/employee/`: employee submission workspace (Kanban + Gantt + create/edit/complete/resolve-overdue modals).
+- `src/features/manager/`: manager Kanban dashboard, employee rollups, change log, and add/fix-task flows.
 - `src/features/gantt/`: shared employee/manager Gantt chart, custom date-range controls, and PNG/print export.
-- `src-tauri/`: Tauri packaging scaffold for macOS and Windows.
+- `src-tauri/`: Tauri 2 packaging scaffold for macOS and Windows.
+- `presentations/`: standalone Node scripts (`build-manager-deck.cjs`, `build-scientist-deck.cjs`) that emit `.pptx` overviews via `pptxgenjs`. These are not bundled with the desktop app.
 
 ## Quick start
 
@@ -66,7 +69,19 @@ Tasks with non-standard or unparseable dates are flagged on cards and collected 
 The UI uses a calm, task-first visual system centered on Avenir Next, with IBM Plex Sans used for compact labels and controls. Required or non-compliant edit fields are highlighted next to the affected inputs rather than hidden in a separate compliance preview box.
 
 The app uses the live Google Sheets workflow only. There is no bundled mock/demo data path.
-If the `Roles` sheet does not exist (manager mode), the app falls back to the configured manager emails and best-effort identity matching against `SheetRegistry`.
+The `Roles` sheet is parsed when present but is not currently consulted for access control; role resolution comes from the configured manager and employee allow-lists in `src/auth/roles.ts`.
+
+## Date handling
+
+Dates are read from Sheets as formatted strings and parsed by `src/utils/date.ts`. The parser accepts:
+
+- `YYYY-MM-DD` (the format `<input type="date">` writes back).
+- `M/D`, `M.D` (current calendar year is assumed).
+- `M/D/YYYY`, `M-D-YYYY`, `M.D.YYYY` (two-digit years are normalized to `20YY`).
+- Spreadsheet serial date numbers.
+- A `new Date(text)` fallback for things like ISO timestamps or `Apr 24, 2026`.
+
+All accepted formats are interpreted as a calendar day in the user's local timezone, so submitting a task on April 24 will display April 24 after refresh regardless of the user's locale. Unparseable values are surfaced as "Invalid format" on the affected cards and routed to the Gantt repair queue.
 
 For full setup, access, spreadsheet, and compliance requirements, see `GUI_ACCESS_REQUIREMENTS.md`.
 

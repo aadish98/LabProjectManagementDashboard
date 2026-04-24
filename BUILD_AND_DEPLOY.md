@@ -76,8 +76,22 @@ Static web for everyday use, Tauri build for users who want a desktop app. Both 
 
 For a small lab with mixed Google account types and no signing certs yet: **static web deploy** is the lowest-effort path. Keep `tauri:dev` / `tauri:build` available as a future upgrade, but do not block on them.
 
+## Auxiliary scripts
+
+The `presentations/` directory is a separate Node project (its own `package.json`, its own `node_modules`) that produces `.pptx` decks for stakeholders via `pptxgenjs`:
+
+```bash
+cd presentations
+npm install
+node build-manager-deck.cjs     # → Manager-Dashboard.pptx
+node build-scientist-deck.cjs   # → Scientist-Workspace.pptx
+```
+
+These scripts are independent of the desktop app build. They are not invoked by `npm run dev`, `npm run frontend:build`, or `npm run build` and never ship inside the Tauri bundle.
+
 ## Gaps worth knowing about
 
-- **No automated tests** (no `vitest`/`jest`/`playwright`). "Testing" = open the app and click around.
+- **No automated tests** (no `vitest`/`jest`/`playwright`). "Testing" = open the app and click around. `npm run typecheck` is the only automated gate.
 - **No staging environment.** Whatever `.env` is on disk at build time is what's baked in. Add `.env.staging` + `vite build --mode staging` if you need it.
 - **No environment-based mode switching in code.** `import.meta.env.DEV` is available but unused.
+- **OAuth flow is browser-only.** `src/auth/googleIdentity.ts` uses Google Identity Services `initTokenClient`, which needs an authorized JavaScript origin. For a packaged Tauri build you must either keep the WebView on an authorized origin or implement the desktop loopback flow before release.

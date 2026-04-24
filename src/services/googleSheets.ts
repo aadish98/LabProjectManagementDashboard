@@ -13,6 +13,7 @@ import {
   readDatasetCache,
   writeDatasetCache
 } from "./cache";
+import { formatLocalIsoDate } from "../utils/date";
 
 const SHEETS_API_ROOT = "https://sheets.googleapis.com/v4/spreadsheets";
 
@@ -671,7 +672,7 @@ export async function resolveOverdueTaskInSheet(
     resolution.newTimeEstimate
   );
 
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = formatLocalIsoDate(new Date());
   const commentLine = `[${stamp}] ${resolution.delayComment.trim()}`;
   const newComments = currentComments.trim()
     ? `${currentComments}\n${commentLine}`

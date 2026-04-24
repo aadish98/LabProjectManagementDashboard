@@ -268,15 +268,16 @@ Users must be able to update an existing task's core details.
 The application must help users create compliant task records by identifying issues before or during save.
 
 ### Rules
-- Active or planned work must include core planning and execution fields.
+- Active or planned work must include core planning and execution fields (project, experiment, time estimate, parseable start date, parseable projected end date, status, schematic, link to data).
 - Completed work must include both a result summary and a data link.
-- Work becomes overdue when it passes the projected end date threshold without being completed.
+- Work becomes overdue when it passes the projected end date by more than a 24-hour grace window without being completed.
 
 ### Requirements
 - The task form must highlight required or non-compliant fields next to the affected inputs.
 - Field-level compliance guidance must include visible text and not rely on color alone.
 - Task cards must visually indicate whether a task is compliant, overdue, or missing required information.
 - Task cards must clearly identify invalid date formats instead of presenting unparseable date values as valid schedule data.
+- The date parser must interpret accepted formats as a calendar day in the user's local timezone so the displayed date matches what the user typed and does not shift across reloads.
 - Compliance feedback must be human-readable and actionable.
 - Manager rollups must summarize flagged items by employee.
 
@@ -316,13 +317,14 @@ When a task is overdue, the application must guide the user through documenting 
 
 ### Requirements
 - The application must provide a dedicated overdue-resolution workflow for overdue tasks.
-- The new projected end date must be in the future.
-- The application must preserve the prior planning values as historical context and append the new values.
-- The delay reason must be recorded in task comments or equivalent task history.
+- The new projected end date must be strictly after today, evaluated in the user's local timezone.
+- The application must preserve the prior planning values as historical context and append the new values. The previous portion of each affected cell must remain visible (e.g. with strikethrough formatting) and the new portion must be appended below it.
+- The delay reason must be recorded in task comments or equivalent task history, prefixed with the local calendar date the user resolved the overdue state.
 
 ### Acceptance Criteria
 - A user cannot resolve overdue status without entering all required fields.
 - The task history must retain evidence of the prior estimate and new estimate.
+- The recorded delay date must match the user's local calendar day and must not shift across timezones.
 
 ### 8.10 Manager Dashboard
 

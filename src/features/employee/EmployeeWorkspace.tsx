@@ -12,6 +12,7 @@ import type {
 import {
   formatDateInputValue,
   formatDateLabel,
+  parsePossibleDate,
   parseTimelineDate,
   startOfToday
 } from "../../utils/date";
@@ -90,8 +91,8 @@ function draftFromRecord(record: ExperimentRecord): ExperimentDraft {
     experiment: record.experiment,
     schematic: record.schematic,
     timeEstimate: record.timeEstimate,
-    startDateRaw: formatDateInputValue(record.startDateRaw),
-    projectedEndDateRaw: formatDateInputValue(record.projectedEndDateRaw),
+    startDateRaw: formatDateInputValue(record.startDateRaw, "first"),
+    projectedEndDateRaw: formatDateInputValue(record.projectedEndDateRaw, "last"),
     status: record.status || "Planned",
     result: record.result,
     dataLink: record.dataLink,
@@ -486,7 +487,7 @@ interface OverdueModalProps {
 
 function OverdueModal({ record, saving, onClose, onSubmit }: OverdueModalProps) {
   const [newProjectedEndDate, setNewProjectedEndDate] = useState(
-    formatDateInputValue(record.projectedEndDateRaw)
+    formatDateInputValue(record.projectedEndDateRaw, "last")
   );
   const [newTimeEstimate, setNewTimeEstimate] = useState(record.timeEstimate);
   const [delayComment, setDelayComment] = useState("");
@@ -504,8 +505,8 @@ function OverdueModal({ record, saving, onClose, onSubmit }: OverdueModalProps) 
     }
 
     const today = startOfToday();
-    const parsedEnd = new Date(newProjectedEndDate);
-    if (Number.isNaN(parsedEnd.getTime()) || parsedEnd.getTime() <= today.getTime()) {
+    const parsedEnd = parsePossibleDate(newProjectedEndDate);
+    if (!parsedEnd || parsedEnd.getTime() <= today.getTime()) {
       setError("The new projected end date must be after today.");
       return;
     }

@@ -1,10 +1,23 @@
 const SHORT_MD_PATTERN = /^(\d{1,2})[./](\d{1,2})$/;
 const FULL_MDY_PATTERN = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/;
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
 
 function normalizeDate(date: Date): Date {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
   return next;
+}
+
+function localDateFrom(year: number, month: number, day: number): Date | null {
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day
+  ) {
+    return normalizeDate(parsed);
+  }
+  return null;
 }
 
 function parseSingleValue(value: unknown): Date | null {
@@ -15,45 +28,62 @@ function parseSingleValue(value: unknown): Date | null {
   }
 
   if (typeof value === "number") {
-    const parsed = new Date(Math.round((value - 25569) * 86400 * 1000));
-    return Number.isNaN(parsed.getTime()) ? null : normalizeDate(parsed);
+    // Spreadsheet serial dates count days since 1899-12-30 in the source's
+    // local calendar. Read out the UTC components and rebuild as a local date
+    // so the calendar day survives a timezone shift west of UTC.
+    const epochMs = Math.round((value - 25569) * 86400 * 1000);
+    const utcDate = new Date(epochMs);
+    if (Number.isNaN(utcDate.getTime())) return null;
+    const local = localDateFrom(
+      utcDate.getUTCFullYear(),
+      utcDate.getUTCMonth() + 1,
+      utcDate.getUTCDate()
+    );
+    if (local) return local;
   }
 
   const text = String(value).trim();
   if (!text) return null;
 
+  // YYYY-MM-DD comes from <input type="date"> and from Google Sheets cells
+  // formatted as plain text. The native Date parser treats this format as UTC
+  // midnight, which slips into the previous day west of UTC. Treat it as a
+  // calendar day in the user's local time instead.
+  const isoMatch = text.match(ISO_DATE_PATTERN);
+  if (isoMatch) {
+    const local = localDateFrom(
+      Number.parseInt(isoMatch[1], 10),
+      Number.parseInt(isoMatch[2], 10),
+      Number.parseInt(isoMatch[3], 10)
+    );
+    if (local) return local;
+  }
+
   const shortMatch = text.match(SHORT_MD_PATTERN);
   if (shortMatch) {
-    const month = Number.parseInt(shortMatch[1], 10);
-    const day = Number.parseInt(shortMatch[2], 10);
-    const year = new Date().getFullYear();
-    const parsed = new Date(year, month - 1, day);
-    if (
-      parsed.getFullYear() === year &&
-      parsed.getMonth() === month - 1 &&
-      parsed.getDate() === day
-    ) {
-      return normalizeDate(parsed);
-    }
+    const local = localDateFrom(
+      new Date().getFullYear(),
+      Number.parseInt(shortMatch[1], 10),
+      Number.parseInt(shortMatch[2], 10)
+    );
+    if (local) return local;
   }
 
   const fullMatch = text.match(FULL_MDY_PATTERN);
   if (fullMatch) {
-    const month = Number.parseInt(fullMatch[1], 10);
-    const day = Number.parseInt(fullMatch[2], 10);
     let year = Number.parseInt(fullMatch[3], 10);
     if (year < 100) year += 2000;
-
-    const parsed = new Date(year, month - 1, day);
-    if (
-      parsed.getFullYear() === year &&
-      parsed.getMonth() === month - 1 &&
-      parsed.getDate() === day
-    ) {
-      return normalizeDate(parsed);
-    }
+    const local = localDateFrom(
+      year,
+      Number.parseInt(fullMatch[1], 10),
+      Number.parseInt(fullMatch[2], 10)
+    );
+    if (local) return local;
   }
 
+  // Fallback for ISO timestamps with explicit time/zone info ("2026-04-24T12:00Z",
+  // "Apr 24, 2026", etc.). These already encode a moment in time, so the engine's
+  // built-in parsing is the right tool.
   const fallback = new Date(text);
   return Number.isNaN(fallback.getTime()) ? null : normalizeDate(fallback);
 }
@@ -95,11 +125,24 @@ export function formatDateLabel(value: string | Date | null | undefined): string
   }).format(parsed);
 }
 
-export function formatDateInputValue(value: string | Date | null | undefined): string {
+export function formatLocalIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function formatDateInputValue(
+  value: string | Date | null | undefined,
+  strategy: "first" | "last" = "first"
+): string {
   if (!value) return "";
-  const parsed = value instanceof Date ? value : parseTimelineDate(value);
+  const parsed = value instanceof Date ? value : parseTimelineDate(value, strategy);
   if (!parsed) return "";
-  return parsed.toISOString().slice(0, 10);
+  // toISOString uses UTC, which would shift the calendar day east of UTC.
+  // Use local components so the date input always reflects the same day the
+  // user (and the rest of the UI) sees.
+  return formatLocalIsoDate(parsed);
 }
 
 export function startOfToday(): Date {

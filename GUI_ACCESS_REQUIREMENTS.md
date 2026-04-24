@@ -149,12 +149,18 @@ Accepted aliases in the current parser:
 
 Header matching uses normalized names, not exact display text. For example, `Projected End Date`, `projected_end_date`, and `PROJECTED-END-DATE` all normalize to `projectedenddate`.
 
-The app treats all cell values as strings when reading from Google Sheets, then parses dates and statuses for compliance and timeline views:
+The app reads all cell values as formatted strings (Sheets API default `valueRenderOption=FORMATTED_VALUE`) and then parses dates and statuses for compliance and timeline views:
 
-- Dates should be actual Google Sheets date values or standard importable strings, preferably `YYYY-MM-DD` or `M/D/YYYY`.
-- Non-standard or unparseable dates are invalid where dates are required for compliance, and they are invalid for timeline/Gantt rendering. Task cards should communicate this as an invalid date format rather than displaying the raw value as if it were usable.
-- `Status` should use one of: `Planned`, `In Progress`, `Ongoing`, `Complete`, `Completed`, `Done`, `Blocked`, or another value containing `block` or `hold`.
-- `Time Estimate` is free text. The UI suggests values like `4h`, but there is no strict validation.
+- Dates should be actual Google Sheets date values or standard importable strings. The parser in `src/utils/date.ts` accepts, in priority order:
+  - `YYYY-MM-DD` (the format `<input type="date">` writes back).
+  - `M/D`, `M.D` (current calendar year is assumed).
+  - `M/D/YYYY`, `M-D-YYYY`, `M.D.YYYY` (two-digit years are normalized to `20YY`).
+  - Spreadsheet serial date numbers (days since 1899-12-30).
+  - As a last resort, anything `new Date(text)` can parse (ISO timestamps with explicit time/zone, `Apr 24, 2026`, etc.). Strings that get this far are interpreted with the host's built-in parsing rules.
+- All accepted formats are interpreted as a calendar day in the user's local timezone; the parser does not silently shift dates across timezones.
+- Non-standard or unparseable dates are invalid where dates are required for compliance, and they are invalid for timeline/Gantt rendering. Task cards communicate this as an invalid date format rather than displaying the raw value as if it were usable.
+- `Status` should use one of: `Planned`, `In Progress`, `Ongoing`, `Complete`, `Completed`, `Done`, `Blocked`, or another value containing `block` or `hold`. Anything else is bucketed as `unknown` and routed to the Planned lane unless overdue.
+- `Time Estimate` is free text. The UI suggests values like `4h`, but there is no strict validation and no field derives from it.
 - `Link to Data` is free text. The UI suggests a Dropbox URL, but the app does not currently validate URL format.
 
 ## Compliance Notes
@@ -178,9 +184,11 @@ A compliant imported task from Google Sheets has:
 A compliant new task added from the GUI has:
 
 - `Project`, `Experiment`, `Time Estimate`, `Start Date`, `Projected End Date`, `Schematic`, and `Link to Data` before creation.
-- Dates supplied through date inputs and written in standard `YYYY-MM-DD` form.
+- Dates supplied through `<input type="date">` inputs and written to the sheet in `YYYY-MM-DD` form. Sheets may then reformat them per the cell's locale; on the next reload the parser will accept the reformatted value.
 - Optional `Comments / Improvements`, `Notebook Location`, and `Result` until the task is completed.
 - Field-level guidance for required or non-compliant fields next to the affected inputs, so users can see what needs correction without checking a separate compliance summary.
+
+The status dropdown in the manager **Add task** modal does not include `Complete`; new tasks must go through the dedicated completion workflow to be marked complete (closeout fields are required there). The employee **Edit task** and manager **Fix task** modals expose all five statuses including `Complete`.
 
 ## Gantt View Requirements
 
@@ -226,24 +234,28 @@ For reliable editing and completion:
 
 Important implementation constraints:
 
-- General task edits rewrite the full recognized row range based on the current header row.
-- Marking a task complete updates only `Status`, `Result`, `Link to Data`, and `Schematic` when those columns exist.
-- Resolving an overdue task requires `Projected End Date` or `End Date`, plus `Time Estimate`.
-- Resolving overdue appends replacement values into the projected-end-date and time-estimate cells as multiline text with strikethrough formatting.
+- General task edits rewrite the full row range from column `A` through the last header column. `Projected End Date` and `End Date` are aliases of the same draft field, and `Schematic` and `Analysis Pipeline Schema` are aliases as well, so if the sheet has both columns they are kept in sync on every save. Columns whose header is not recognized by the app are written as blank for the edited row.
+- Marking a task complete writes only `Status` (set to `Complete`), `Result`, `Link to Data`, and `Schematic` when those columns exist. No date fields are modified by completion.
+- Resolving an overdue task requires `Projected End Date` (or `End Date`) and `Time Estimate` columns to exist.
+- Resolving overdue:
+  - Appends the new projected-end-date and new time-estimate into the existing cells as newline-separated text. The previous portion of each cell is given a `strikethrough` text-format run; the appended portion is plain.
+  - Appends a delay reason to `Comments/ Improvements` prefixed with `[YYYY-MM-DD]`, where the date is the user's local calendar day.
+  - Validates that the new projected end date is strictly after today (in the user's local timezone) and that the delay reason is non-empty.
+- After a resolve-overdue, the `Projected End Date` cell holds two newline-separated dates. The Kanban/Gantt cards and the **Edit task** / **Fix task** modal pre-populate from the *most recent* date in the cell. Saving from those modals overwrites the cell with a single date and discards the strikethrough history; intentional history-preserving updates must go through the **Resolve overdue** modal.
 
 ## Local Storage Requirements
 
-The app stores these values locally on the device:
+The app stores these values locally on the device under the following `localStorage` keys (all defined in `src/services/cache.ts`):
 
 - App setup config: `lab-workflow/config`
 - Google session: `lab-workflow/session`
+- Manager dataset cache per admin spreadsheet: `lab-workflow/dataset-cache/<spreadsheetId>`
 - Employee task-log preferences per email: `lab-workflow/employee-prefs/<email>`
 - Manager tab order per email: `lab-workflow/manager-tabs/<email>`
-- Manager dataset cache per admin spreadsheet: `lab-workflow/dataset-cache/<spreadsheetId>`
-- Manager change snapshot per email and admin spreadsheet.
-- Manager last-run metadata per email.
+- Manager change snapshot per email and admin spreadsheet: `lab-workflow/manager-snapshot/<email>/<spreadsheetId>`
+- Manager last-run metadata per email: `lab-workflow/manager-lastrun/<email>`
 
-A new device starts without these local overrides. Developers should treat `.env` / deployment defaults as the source for first-run configuration, and local setup as a convenience override.
+Email components in keys are lowercased and trimmed. A new device starts without these local overrides. Developers should treat `.env` / deployment defaults as the source for first-run configuration, and local setup as a convenience override.
 
 ## Onboarding Checklist
 
@@ -273,10 +285,11 @@ Use this checklist to bring a new deployment online.
 
 These are not setup requirements, but they affect operational reliability:
 
-- The `Roles` sheet is parsed but not used for access control.
-- Employee task-log preferences are local only; they are not centrally provisioned.
-- Google Sheets values are read as formatted strings rather than canonical typed values.
+- The `Roles` sheet is parsed but not used for access control. `src/auth/roles.ts` resolves role from the configured manager/employee allow-lists only; a developer must edit that file before `Roles` can become authoritative.
+- Employee task-log preferences are local only; they are not centrally provisioned. The manager `SheetRegistry` rows are not consulted to seed an employee's first-run setup.
+- Google Sheets values are read as formatted strings rather than canonical typed values. Date semantics therefore depend on the parser's tolerance, which is documented in the date-format list above.
 - Header validation is implicit. Missing columns often degrade into blank fields rather than a clear schema error.
-- General task edits can overwrite unrecognized columns in the edited row.
-- Row identity is positional. If rows are inserted or deleted after load, updates can target the wrong row.
-- Packaged Tauri OAuth behavior should be verified before production distribution.
+- General task edits rewrite the full row range across recognized headers. Any column whose header the app does not recognize is written as blank for the edited row.
+- Row identity is positional (the row number recorded at load time). If rows are inserted or deleted in the spreadsheet after the app loads but before a save, updates can target the wrong row.
+- Editing a task whose projected-end-date cell holds a multi-line strikethrough history through the regular **Edit task** / **Fix task** modal collapses the cell back to a single date. Use the **Resolve overdue** modal when history needs to be preserved.
+- Packaged Tauri OAuth behavior should be verified before production distribution. The current sign-in path uses Google Identity Services token client, which targets a browser origin; the desktop loopback flow is not implemented.
