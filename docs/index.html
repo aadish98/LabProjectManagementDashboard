@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lab Project Management Dashboard</title>
+    <meta
+      name="description"
+      content="A desktop workflow dashboard for lab task logs, compliance tracking, feedback, and Google Sheets based project management."
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="site-shell">
+      <nav class="topbar" aria-label="Primary navigation">
+        <a class="brand" href="./" aria-label="Lab Project Management Dashboard home">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>Lab Project Management Dashboard</span>
+        </a>
+        <a href="PRIVACY/">Privacy Policy</a>
+      </nav>
+
+      <section class="hero">
+        <div class="hero-card">
+          <p class="eyebrow">Google Sheets workflow desktop app</p>
+          <h1>Lab operations without spreadsheet drift.</h1>
+          <p class="lede">
+            Lab Project Management Dashboard helps lab members and managers work from the
+            same Google Sheets source of truth while adding role-based task views,
+            compliance checks, feedback, and planning tools.
+          </p>
+          <div class="actions">
+            <a class="button" href="PRIVACY/">Read the privacy policy</a>
+            <a class="button secondary" href="https://github.com/aadish98/LabProjectManagementDashboard">
+              View the repository
+            </a>
+          </div>
+        </div>
+
+        <aside class="panel" aria-label="Application status">
+          <p class="eyebrow">OAuth verification site</p>
+          <h2>Public app information</h2>
+          <div class="status-list">
+            <div class="status-item">
+              <span>Purpose</span>
+              <p>Desktop dashboard for lab task logs, compliance review, and feedback.</p>
+            </div>
+            <div class="status-item">
+              <span>Data source</span>
+              <p>Google Sheets files that the signed-in user can already access.</p>
+            </div>
+            <div class="status-item">
+              <span>Storage model</span>
+              <p>No separate hosted backend for Google user data.</p>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="grid" aria-label="Feature summary">
+        <article class="mini-card">
+          <h3>For lab members</h3>
+          <p>Create and update experiment records, review task status, and keep logs organized.</p>
+        </article>
+        <article class="mini-card">
+          <h3>For managers</h3>
+          <p>Review team task boards, compliance summaries, feedback, and run-log activity.</p>
+        </article>
+        <article class="mini-card">
+          <h3>Built around access</h3>
+          <p>The app uses Google sign-in and respects the user's existing Google Drive permissions.</p>
+        </article>
+      </section>
+
+      <footer>
+        <p>
+          This page provides public application information for Google OAuth configuration.
+          The application itself is distributed as a desktop app.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>
