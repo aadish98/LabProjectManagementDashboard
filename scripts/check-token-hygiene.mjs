@@ -30,11 +30,11 @@ const textExtensions = new Set([
   ".yaml",
   ".yml"
 ]);
-const publicClientSecretVariable = ["VITE", "GOOGLE", "CLIENT", "SECRET"].join("_");
+const hardcodedGoogleClientSecret = /GOCSPX-[A-Za-z0-9_-]+/;
 const tokenLogPattern =
-  /\b(console\.(?:debug|error|info|log|trace|warn)|eprintln!|println!)\b.*\b(access.?token|refresh.?token|id.?token|authorization|bearer)\b/i;
+  /\b(console\.(?:debug|error|info|log|trace|warn)|eprintln!|println!)\b.*\b(access.?token|refresh.?token|id.?token|authorization|bearer|client.?secret)\b/i;
 const directTokenStoragePattern =
-  /\blocalStorage\.setItem\b.*\b(access.?token|refresh.?token|id.?token|authorization|bearer)\b/i;
+  /\blocalStorage\.setItem\b.*\b(access.?token|refresh.?token|id.?token|authorization|bearer|client.?secret)\b/i;
 
 async function collectFiles(directory) {
   const files = [];
@@ -60,8 +60,8 @@ for (const file of await collectFiles(root)) {
   const isGeneratedBuild =
     relative.startsWith(`dist${path.sep}`) ||
     relative.startsWith(`backend${path.sep}dist${path.sep}`);
-  if (contents.includes(publicClientSecretVariable)) {
-    failures.push(`${relative}: contains a forbidden bundled OAuth client-secret variable`);
+  if (hardcodedGoogleClientSecret.test(contents)) {
+    failures.push(`${relative}: contains a hardcoded Google OAuth client secret value`);
   }
   if (isGeneratedBuild) continue;
   for (const [index, line] of contents.split(/\r?\n/).entries()) {
@@ -79,6 +79,6 @@ if (failures.length > 0) {
   process.exitCode = 1;
 } else {
   process.stdout.write(
-    "Token hygiene passed: source/build contain no bundled client-secret variable; source contains no likely token logging or direct token localStorage write.\n"
+    "Token hygiene passed: source contains no hardcoded Google client secret values, no likely token logging, and no direct token localStorage writes.\n"
   );
 }

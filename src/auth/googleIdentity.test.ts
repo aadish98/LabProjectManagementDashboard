@@ -65,28 +65,33 @@ describe("Google desktop identity", () => {
     ).toThrow(/invalid state/i);
   });
 
-  it("sends a public-client PKCE token exchange without a bundled secret", () => {
+  it("sends PKCE token exchange with the Google Desktop client secret", () => {
     const exchange = buildAuthorizationCodeTokenRequest(
       "client-id",
       "authorization-code",
-      "verifier"
+      "verifier",
+      "desktop-client-secret"
     );
     expect(Object.fromEntries(exchange)).toEqual({
       client_id: "client-id",
+      client_secret: "desktop-client-secret",
       code: "authorization-code",
       code_verifier: "verifier",
       grant_type: "authorization_code",
       redirect_uri: "http://127.0.0.1:53682"
     });
-    expect(exchange.has("client_secret")).toBe(false);
 
-    const refresh = buildRefreshTokenRequest("client-id", "refresh-token");
+    const refresh = buildRefreshTokenRequest(
+      "client-id",
+      "refresh-token",
+      "desktop-client-secret"
+    );
     expect(Object.fromEntries(refresh)).toEqual({
       client_id: "client-id",
+      client_secret: "desktop-client-secret",
       grant_type: "refresh_token",
       refresh_token: "refresh-token"
     });
-    expect(refresh.has("client_secret")).toBe(false);
   });
 
   it("captures a refreshed ID token and keeps the refresh token", async () => {
@@ -108,7 +113,7 @@ describe("Google desktop identity", () => {
     );
 
     await expect(
-      refreshGoogleAccessToken("client-id", "refresh-token")
+      refreshGoogleAccessToken("client-id", "refresh-token", "desktop-client-secret")
     ).resolves.toMatchObject({
       accessToken: "new-access",
       idToken: "new-id",
@@ -156,7 +161,9 @@ describe("Google desktop identity", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(signInWithGoogle("client-id")).resolves.toMatchObject({
+    await expect(
+      signInWithGoogle("client-id", { clientSecret: "desktop-client-secret" })
+    ).resolves.toMatchObject({
       email: "member@example.com",
       accessToken: "second-access",
       idToken: "second-id",
@@ -194,7 +201,8 @@ describe("Google desktop identity", () => {
           refreshToken: "refresh-token",
           accessTokenExpiresAt: Date.now() + 3600_000
         },
-        "client-id"
+        "client-id",
+        "desktop-client-secret"
       )
     ).resolves.toMatchObject({
       accessToken: "new-access",

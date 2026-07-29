@@ -15,7 +15,7 @@ The browser-hosted Vite build is not a supported product or authentication envir
 ## Security and data flow
 
 - Google sign-in requests only `openid`, `email`, `profile`, and per-file `drive.file`.
-- OAuth uses the fixed `127.0.0.1:53682` loopback callback, state, and PKCE S256 as a public Desktop client; no client secret is configured or bundled.
+- OAuth uses the fixed `127.0.0.1:53682` loopback callback, state, and PKCE S256 for a Desktop OAuth client. Google's token endpoint still requires the Desktop client secret alongside PKCE.
 - The desktop client sends the short-lived Google ID token to Cloud Run for server-side audience, issuer, signature, and expiry verification.
 - Cloud Run stores application records and account metadata in Firestore. It does not persist Google Drive access or refresh tokens.
 - Drive access tokens are processed in memory only while servicing a Sheets/Picker operation and are then discarded.
@@ -41,7 +41,7 @@ Google Drive access is a separate data-access gate. Managers provision exact-fil
 4. Create a browser API key for Picker; restrict it to your app origins and the Picker API.
 5. Copy `.env.example` → `.env` and set:
    - `VITE_BACKEND_BASE_URL` (HTTPS Cloud Run service URL)
-   - `VITE_GOOGLE_CLIENT_ID` (public Desktop app OAuth client; no bundled client secret)
+   - `VITE_GOOGLE_CLIENT_ID` / `VITE_GOOGLE_CLIENT_SECRET` (Desktop app OAuth client; secret required by Google's token endpoint with PKCE)
    - `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID` (Cloud project number)
    - `VITE_ADMIN_SPREADSHEET_ID` (manager-only; URL or ID)
 6. Create the canonical admin workbook and empty `Roles` sheet; share it with the founding operator.

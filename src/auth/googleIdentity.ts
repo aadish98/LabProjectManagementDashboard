@@ -32,12 +32,29 @@ export interface GoogleSignInOptions {
    * Request consent again only when the vault has no usable refresh token.
    */
   forceConsent?: boolean;
+  /** Desktop OAuth client secret; defaults to VITE_GOOGLE_CLIENT_SECRET. */
+  clientSecret?: string;
 }
 
 function assertConfiguredClientId(clientId: string): string {
   const trimmed = clientId.trim();
   if (!trimmed) {
     throw new Error("Add the desktop app's Google OAuth client ID in Setup before signing in.");
+  }
+  return trimmed;
+}
+
+/**
+ * Google Desktop OAuth clients still require client_secret on the token
+ * endpoint even when PKCE is used. The value is not a confidential server
+ * secret for installed apps, but omitting it returns "client_secret is missing."
+ */
+export function resolveGoogleClientSecret(explicit?: string): string {
+  const trimmed = (explicit ?? import.meta.env.VITE_GOOGLE_CLIENT_SECRET ?? "").trim();
+  if (!trimmed) {
+    throw new Error(
+      "Add the desktop app's Google OAuth client secret (VITE_GOOGLE_CLIENT_SECRET) before signing in."
+    );
   }
   return trimmed;
 }
@@ -131,10 +148,12 @@ function buildTokenRequestBody(values: Record<string, string>): URLSearchParams 
 export function buildAuthorizationCodeTokenRequest(
   clientId: string,
   code: string,
-  codeVerifier: string
+  codeVerifier: string,
+  clientSecret?: string
 ): URLSearchParams {
   return buildTokenRequestBody({
     client_id: assertConfiguredClientId(clientId),
+    client_secret: resolveGoogleClientSecret(clientSecret),
     code,
     code_verifier: codeVerifier,
     grant_type: "authorization_code",
@@ -144,10 +163,12 @@ export function buildAuthorizationCodeTokenRequest(
 
 export function buildRefreshTokenRequest(
   clientId: string,
-  refreshToken: string
+  refreshToken: string,
+  clientSecret?: string
 ): URLSearchParams {
   return buildTokenRequestBody({
     client_id: assertConfiguredClientId(clientId),
+    client_secret: resolveGoogleClientSecret(clientSecret),
     grant_type: "refresh_token",
     refresh_token: refreshToken
   });
@@ -193,6 +214,7 @@ export async function signInWithGoogle(
   options: GoogleSignInOptions = {}
 ): Promise<UserSession> {
   const configuredClientId = assertConfiguredClientId(clientId);
+  const configuredClientSecret = resolveGoogleClientSecret(options.clientSecret);
   const codeVerifier = randomBase64Url(32);
   const codeChallenge = await createCodeChallenge(codeVerifier);
   const state = randomBase64Url(32);
@@ -206,11 +228,19 @@ export async function signInWithGoogle(
   const code = extractAuthorizationCode(redirectUrl, state);
 
   const token = await requestGoogleToken(
-    buildAuthorizationCodeTokenRequest(configuredClientId, code, codeVerifier)
+    buildAuthorizationCodeTokenRequest(
+      configuredClientId,
+      code,
+      codeVerifier,
+      configuredClientSecret
+    )
   );
   if (!token.refresh_token) {
     if (options.forceConsent !== true) {
-      return signInWithGoogle(configuredClientId, { forceConsent: true });
+      return signInWithGoogle(configuredClientId, {
+        forceConsent: true,
+        clientSecret: configuredClientSecret
+      });
     }
     throw new Error(
       "Google did not return a refresh token after consent. Revoke the app in Google Account permissions, then try again."
@@ -237,7 +267,8 @@ export async function signInWithGoogle(
 
 export async function refreshGoogleAccessToken(
   clientId: string,
-  refreshToken: string
+  refreshToken: string,
+  clientSecret?: string
 ): Promise<
   Pick<UserSession, "accessToken" | "idToken" | "refreshToken" | "accessTokenExpiresAt">
 > {
@@ -247,7 +278,11 @@ export async function refreshGoogleAccessToken(
   }
 
   const token = await requestGoogleToken(
-    buildRefreshTokenRequest(configuredClientId, refreshToken)
+    buildRefreshTokenRequest(
+      configuredClientId,
+      refreshToken,
+      resolveGoogleClientSecret(clientSecret)
+    )
   );
   if (!token.id_token) {
     throw new Error("Google did not return a refreshed ID token for backend verification.");
@@ -263,7 +298,8 @@ export async function refreshGoogleAccessToken(
 
 export async function getFreshSession(
   session: UserSession,
-  clientId: string
+  clientId: string,
+  clientSecret?: string
 ): Promise<UserSession> {
   const hasValidAccessToken =
     session.accessToken &&
@@ -279,7 +315,11 @@ export async function getFreshSession(
     throw new Error("Google needs a fresh sign-in to continue.");
   }
 
-  const refreshed = await refreshGoogleAccessToken(clientId, session.refreshToken);
+  const refreshed = await refreshGoogleAccessToken(
+    clientId,
+    session.refreshToken,
+    clientSecret
+  );
   return {
     ...session,
     accessToken: refreshed.accessToken,

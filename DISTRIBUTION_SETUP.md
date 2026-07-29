@@ -5,7 +5,7 @@
 - Enable **Google Sheets API**, **Google Drive API**, and **Google Picker API**. Drive permission provisioning uses the signed-in manager/PI's delegated token; the Cloud Run runtime service account must not receive Drive access.
 - Configure OAuth consent with scopes: `openid`, `email`, `profile`, `drive.file`.
 - Create a **Desktop app** OAuth client and add redirect URI: `http://127.0.0.1:53682`.
-- Treat the Desktop app as a public PKCE client. Configure only its client ID in the app; do not bundle a client secret.
+- Configure the Desktop client ID and Desktop client secret in the app/CI. Google's token endpoint still requires that secret alongside PKCE; do not commit the real secret value.
 - Create a browser API key for Picker and restrict it to the Picker API and your app origins.
 
 ## 2. Deploy the Backend
@@ -21,6 +21,7 @@ Create `.env` from `.env.example` and fill:
 ```bash
 VITE_BACKEND_BASE_URL=https://YOUR_CLOUD_RUN_SERVICE
 VITE_GOOGLE_CLIENT_ID=
+VITE_GOOGLE_CLIENT_SECRET=
 VITE_GOOGLE_API_KEY=
 VITE_GOOGLE_APP_ID=
 VITE_ADMIN_SPREADSHEET_ID=
