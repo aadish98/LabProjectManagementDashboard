@@ -101,6 +101,10 @@ function renderedFragments(sourceFile) {
   return fragments;
 }
 
+function repoPath(path) {
+  return relative(root, path).split("\\").join("/");
+}
+
 const violations = [];
 for (const path of sourceFiles(sourceRoot)) {
   const sourceFile = ts.createSourceFile(
@@ -113,7 +117,7 @@ for (const path of sourceFiles(sourceRoot)) {
   for (const fragment of renderedFragments(sourceFile)) {
     for (const rule of forbiddenTerms) {
       for (const match of fragment.text.matchAll(rule.pattern)) {
-        const allowlist = technicalAllowlist.get(relative(root, path));
+        const allowlist = technicalAllowlist.get(repoPath(path));
         if (allowlist?.has(match[0].toLowerCase())) continue;
         violations.push({
           path,
@@ -142,7 +146,7 @@ if (violations.length > 0) {
   console.error("User-facing terminology violations:");
   for (const violation of violations) {
     console.error(
-      `${relative(root, violation.path)}:${violation.line} "${violation.found}" → ${violation.expected}`
+      `${repoPath(violation.path)}:${violation.line} "${violation.found}" → ${violation.expected}`
     );
   }
   process.exitCode = 1;
