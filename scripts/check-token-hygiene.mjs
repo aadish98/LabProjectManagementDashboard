@@ -60,10 +60,12 @@ for (const file of await collectFiles(root)) {
   const isGeneratedBuild =
     relative.startsWith(`dist${path.sep}`) ||
     relative.startsWith(`backend${path.sep}dist${path.sep}`);
+  // Vite inlines VITE_* values into dist/; Google Desktop OAuth still needs
+  // the client secret at runtime. Only flag secrets committed in source.
+  if (isGeneratedBuild) continue;
   if (hardcodedGoogleClientSecret.test(contents)) {
     failures.push(`${relative}: contains a hardcoded Google OAuth client secret value`);
   }
-  if (isGeneratedBuild) continue;
   for (const [index, line] of contents.split(/\r?\n/).entries()) {
     if (tokenLogPattern.test(line)) {
       failures.push(`${relative}:${index + 1}: may log an OAuth bearer credential`);
