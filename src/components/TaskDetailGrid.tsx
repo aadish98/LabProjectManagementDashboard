@@ -47,12 +47,12 @@ export function TaskDetailGrid({ record, className = "" }: TaskDetailGridProps) 
 
   return (
     <dl className={`task-detail-grid ${className}`.trim()}>
-      <DetailItem label="Lab member" value={record.labMember} />
+      <DetailItem label="Member" value={record.labMember} />
       <DetailItem label="Project" value={record.project} />
       <DetailItem label="Experiment" value={record.experiment} />
       <DetailItem label="Status" value={record.status} />
-      <DetailItem label="Task log" value={record.taskLogUrl} />
-      <DetailItem label="Sheet tab" value={record.activeSheetName} />
+      <DetailItem label="Task-log workbook" value={record.taskLogUrl} />
+      <DetailItem label="Active task tab" value={record.activeSheetName} />
       <DetailItem label="Row" value={record.rowNumber ?? "—"} />
       <DetailItem label="Time estimate" value={record.timeEstimate} />
       <DetailItem label="Start date" value={formatDateLabel(record.startDateRaw)} />

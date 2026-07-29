@@ -11,6 +11,9 @@ L.setupPres(pres, "manager");
 
 const FOOT = "Lab Workflow · Manager functionality";
 
+const TURBO_DMG =
+  "smb://umms-rallada-win.turbo.storage.umich.edu/umms-rallada/Softwares/LabProjectManagement/Lab Workflow Desktop_0.1.0_Mac-universal.dmg";
+
 /* ---------- Slide 1: Title ---------- */
 {
   const s = pres.addSlide();
@@ -69,10 +72,11 @@ const FOOT = "Lab Workflow · Manager functionality";
   });
 
   const ticks = [
+    "Copy updates from the lab Turbo share",
     "All employees in one kanban view",
     "Filter by employee with reorderable tabs",
     "Assign new tasks to any lab member",
-    "See exactly what changed since the last refresh",
+    "See exactly what changed since the last run summary",
   ];
   let ty = 5.4;
   for (const tick of ticks) {
@@ -106,6 +110,12 @@ const FOOT = "Lab Workflow · Manager functionality";
 
   const steps = [
     {
+      n: 0,
+      label: "Get the app",
+      detail:
+        "Copy Lab Workflow Desktop from the lab Turbo share, open the .dmg, and drag the app to Applications. Replace the existing copy when updating.",
+    },
+    {
       n: 1,
       label: "Sign in",
       detail:
@@ -121,21 +131,21 @@ const FOOT = "Lab Workflow · Manager functionality";
       n: 3,
       label: "Act",
       detail:
-        "Filter to a single employee, add a task on their behalf, or open Setup to adjust configuration.",
+        "Filter to a single employee, add a task on their behalf, or open Lab setup to adjust the team.",
     },
     {
       n: 4,
       label: "Track changes",
       detail:
-        "Run summary records a snapshot. The next refresh shows added, removed, and updated tasks since.",
+        "Run summary reloads data and records a snapshot. The next run shows added, removed, and updated tasks since.",
     },
   ];
 
-  const stepW = 2.85;
-  const stepGap = 0.25;
-  const startX = 0.6;
-  const stepY = 2.0;
-  const stepH = 4.6;
+  const stepW = 2.22;
+  const stepGap = 0.18;
+  const startX = 0.55;
+  const stepY = 1.85;
+  const stepH = 4.25;
 
   for (let i = 0; i < steps.length; i += 1) {
     const x = startX + i * (stepW + stepGap);
@@ -162,46 +172,72 @@ const FOOT = "Lab Workflow · Manager functionality";
       margin: 0,
     });
     s.addText(steps[i].label, {
-      x: x + 0.2,
-      y: stepY + 1.55,
-      w: stepW - 0.4,
+      x: x + 0.12,
+      y: stepY + 1.5,
+      w: stepW - 0.24,
       h: 0.5,
-      fontSize: 18,
+      fontSize: i === 0 ? 16 : 17,
       bold: true,
       fontFace: L.FONTS.title,
       color: t.titleText,
       align: "center",
       margin: 0,
+      fit: "shrink",
     });
     s.addText(steps[i].detail, {
-      x: x + 0.25,
-      y: stepY + 2.15,
-      w: stepW - 0.5,
-      h: stepH - 2.3,
-      fontSize: 12,
+      x: x + 0.16,
+      y: stepY + 2.05,
+      w: stepW - 0.32,
+      h: stepH - 2.2,
+      fontSize: 10.5,
       fontFace: L.FONTS.body,
       color: t.bodyText,
       align: "center",
       valign: "top",
       margin: 0,
+      fit: "shrink",
     });
   }
+
+  L.card(pres, s, 0.55, 6.28, 12.23, 0.62, t);
+  s.addText("Turbo share (lab update path)", {
+    x: 0.75,
+    y: 6.36,
+    w: 2.2,
+    h: 0.2,
+    fontSize: 9,
+    bold: true,
+    fontFace: L.FONTS.body,
+    color: t.accent,
+    margin: 0,
+  });
+  s.addText(TURBO_DMG, {
+    x: 0.75,
+    y: 6.56,
+    w: 11.83,
+    h: 0.28,
+    fontSize: 8,
+    fontFace: L.FONTS.mono,
+    color: t.mutedText,
+    margin: 0,
+    fit: "shrink",
+  });
 }
 
 /* ---------- Slide 3: Sign in & dashboard loads ---------- */
 {
   const s = pres.addSlide();
   L.addSlideFrame(pres, s, t, { footerLeft: FOOT, footerRight: "02 / 10" });
-  L.addSlideTitle(s, "Sign in and the dashboard loads itself", t, "Step 1");
+  L.addSlideTitle(s, "Sign in and the dashboard loads itself", t, "Step 1 · After install");
 
   L.addBodyText(
     s,
     [
-      "Sign in with the Google account on your manager allow-list.",
-      "The app reads the admin spreadsheet (SheetRegistry, RunLog, Feedback, Roles).",
-      "For every active row in SheetRegistry, the app pulls that employee's task log automatically.",
-      "If a refresh fails, the dashboard falls back to the last successful snapshot with a sync warning — never a blank screen.",
-      "The set of visible employees is driven entirely by SheetRegistry. Add or deactivate a row to add or hide an employee.",
+      "Sign in with the Google account listed as a manager in the admin workbook Roles tab.",
+      "The app reads the admin spreadsheet (SheetRegistry, Roles, and optional RunLog / Feedback tabs).",
+      "For every active row in SheetRegistry, the app pulls that employee's task log — after Drive sharing and Picker access.",
+      "If a task log is shared but not yet readable, use Grant task-log access to pick it from Drive once.",
+      "The set of visible employees is driven entirely by SheetRegistry. Add or deactivate a row in Lab setup.",
     ],
     0.6,
     1.9,
@@ -336,7 +372,7 @@ const FOOT = "Lab Workflow · Manager functionality";
 {
   const s = pres.addSlide();
   L.addSlideFrame(pres, s, t, { footerLeft: FOOT, footerRight: "03 / 10" });
-  L.addSlideTitle(s, "Your dashboard at a glance", t, "Step 2 · The full view");
+  L.addSlideTitle(s, "Your dashboard at a glance", t, "Step 2 · Review");
 
   // Top bar
   L.appTopBar(
@@ -348,11 +384,17 @@ const FOOT = "Lab Workflow · Manager functionality";
     t,
     "Manager dashboard",
     "Source: Google Sheets · Last sync 2 minutes ago",
+    ["alex@lab.edu", "Lab setup", "Sign out"],
   );
+
+  L.pill(pres, s, "Team", 0.6, 2.05, 0.75, "1E3A8A", "BFDBFE");
+  L.pill(pres, s, "My tasks", 1.45, 2.05, 0.85, "1E293B", t.bodyText);
+  L.pill(pres, s, "Kanban", 2.5, 2.05, 0.75, "1E3A8A", "BFDBFE");
+  L.pill(pres, s, "Gantt", 3.35, 2.05, 0.65, "1E293B", t.bodyText);
 
   // Tabs row
   let tx = 0.6;
-  const ty = 2.2;
+  const ty = 2.55;
   const tabs = [
     { label: "All employees", active: true },
     { label: "Alex Sharma", active: false },
@@ -366,7 +408,7 @@ const FOOT = "Lab Workflow · Manager functionality";
   }
 
   // Metrics row
-  const my = 2.75;
+  const my = 3.1;
   const mh = 1.0;
   const mGap = 0.18;
   const mW = (12.13 - 3 * mGap) / 4;
@@ -409,7 +451,7 @@ const FOOT = "Lab Workflow · Manager functionality";
   );
 
   // 4-lane kanban with lab member badges visible
-  const laneY = 3.95;
+  const laneY = 4.3;
   const laneH = 3.05;
   const totalW = 12.13;
   const gap = 0.18;
@@ -583,8 +625,8 @@ const FOOT = "Lab Workflow · Manager functionality";
     [
       "All employees is the default — every visible task in one kanban.",
       "Click any name to filter the metrics, kanban, and rollup to just that person.",
+      "On All employees, use the employee checkboxes to show a subset without switching tabs.",
       "Drag a tab to reorder. The order is saved per-device, so your dashboard opens the way you left it.",
-      "New employees added to SheetRegistry appear automatically; deactivated employees disappear.",
       "Filter scope cascades: metrics, kanban lanes, rollup cards, and change log all narrow together.",
     ],
     0.6,
@@ -741,7 +783,7 @@ const FOOT = "Lab Workflow · Manager functionality";
   const mx = 6.6;
   const my = 1.9;
   const mw = 6.1;
-  const mh = 5.0;
+  const mh = 5.35;
   L.panel(pres, s, mx, my, mw, mh, t);
   s.addText("New task", {
     x: mx + 0.3,
@@ -838,9 +880,12 @@ const FOOT = "Lab Workflow · Manager functionality";
   L.field(pres, s, "Experiment", "Reagent QC", mx + 0.3 + fW + 0.3, fy, fW, t);
   L.field(pres, s, "Status", "Planned", mx + 0.3, fy + 0.85, fW, t);
   L.field(pres, s, "Time estimate", "5h", mx + 0.3 + fW + 0.3, fy + 0.85, fW, t);
-  L.field(pres, s, "Projected end date", "2026-05-02", mx + 0.3, fy + 1.7, mw - 0.6, t);
-  L.primaryButton(pres, s, "Add task", mx + 0.3, fy + 2.55, 1.5, t);
-  L.secondaryButton(pres, s, "Cancel", mx + 1.95, fy + 2.55, 1.1, t);
+  L.field(pres, s, "Start date", "2026-04-28", mx + 0.3, fy + 1.52, fW, t);
+  L.field(pres, s, "Projected end date", "2026-05-02", mx + 0.3 + fW + 0.3, fy + 1.52, fW, t);
+  L.field(pres, s, "Schematic", "Link or short description", mx + 0.3, fy + 2.28, mw - 0.6, t);
+  L.field(pres, s, "Link to data", "Dropbox or Drive link", mx + 0.3, fy + 3.04, mw - 0.6, t);
+  L.primaryButton(pres, s, "Add task", mx + 0.3, fy + 3.86, 1.5, t);
+  L.secondaryButton(pres, s, "Cancel", mx + 1.95, fy + 3.86, 1.1, t);
 }
 
 /* ---------- Slide 8: Employee rollup cards ---------- */
@@ -983,13 +1028,13 @@ const FOOT = "Lab Workflow · Manager functionality";
 {
   const s = pres.addSlide();
   L.addSlideFrame(pres, s, t, { footerLeft: FOOT, footerRight: "08 / 10" });
-  L.addSlideTitle(s, "Change log between refreshes", t, "Step 4 · Track what moved");
+  L.addSlideTitle(s, "Change log between run summaries", t, "Step 4 · Track changes");
 
   L.addBodyText(
     s,
     [
-      "The Run summary button on the dashboard captures a snapshot of the current dataset.",
-      "Each subsequent refresh diffs against that snapshot and groups changes by employee.",
+      "The Run summary button reloads spreadsheet data and captures a snapshot of the current dataset.",
+      "Each subsequent Run summary diffs against that snapshot and groups changes by employee.",
       "Three categories: tasks added, tasks removed, and tasks updated (with field-level before/after values).",
       "The first run initializes tracking. The second and beyond show only what's new since.",
       "Lets you walk into a check-in knowing exactly what changed without opening the spreadsheet.",
@@ -1140,20 +1185,20 @@ const FOOT = "Lab Workflow · Manager functionality";
   });
 }
 
-/* ---------- Slide 10: Setup panel (configuration) ---------- */
+/* ---------- Slide 10: Lab setup & My tasks ---------- */
 {
   const s = pres.addSlide();
   L.addSlideFrame(pres, s, t, { footerLeft: FOOT, footerRight: "09 / 10" });
-  L.addSlideTitle(s, "Setup panel", t, "Configuration without a rebuild");
+  L.addSlideTitle(s, "Lab setup and My tasks", t, "Team configuration without editing sheets");
 
   L.addBodyText(
     s,
     [
-      "Open from the Setup chip in the top bar at any time.",
-      "Edit values without redeploying or restarting — changes take effect on the next data reload.",
-      "Saved locally on this device, so each manager can keep their own configuration.",
-      "Hit Reload data after editing to apply the change immediately.",
-      "Use it to point at a different admin spreadsheet, change allow-lists, or adjust which sheet names hold the registry, run log, feedback, and roles.",
+      "Open Lab setup from the top bar to manage managers, lab members, and active task logs.",
+      "Saving writes SheetRegistry and Roles in the admin workbook — no hand-editing required.",
+      "Use Fix missing setup sheets if SheetRegistry or Roles tabs are not present yet.",
+      "If the dashboard lists task logs you cannot read, click Grant task-log access and pick them in Drive.",
+      "Managers who also run experiments: add a lab member row, link it from your manager entry, then use My tasks.",
     ],
     0.6,
     1.9,
@@ -1163,13 +1208,13 @@ const FOOT = "Lab Workflow · Manager functionality";
     13.5,
   );
 
-  // Right: config panel mockup
+  // Right: Lab setup panel mockup
   const px = 6.6;
   const py = 1.95;
   const pw = 6.1;
   const ph = 4.95;
   L.panel(pres, s, px, py, pw, ph, t);
-  s.addText("Manager setup", {
+  s.addText("Lab setup", {
     x: px + 0.3,
     y: py + 0.2,
     w: pw - 2.5,
@@ -1180,7 +1225,7 @@ const FOOT = "Lab Workflow · Manager functionality";
     color: t.titleText,
     margin: 0,
   });
-  L.secondaryButton(pres, s, "Reload data", px + pw - 2.3, py + 0.2, 1.2, t);
+  L.primaryButton(pres, s, "Save", px + pw - 2.0, py + 0.2, 0.85, t);
   L.secondaryButton(pres, s, "Close", px + pw - 1.0, py + 0.2, 0.7, t);
   s.addShape(pres.shapes.RECTANGLE, {
     x: px + 0.3,
@@ -1191,16 +1236,35 @@ const FOOT = "Lab Workflow · Manager functionality";
     line: { color: t.cardBorder, width: 0 },
   });
 
-  // Field rows
-  const fy = py + 0.9;
-  L.field(pres, s, "Admin spreadsheet ID or URL", "https://docs.google.com/spreadsheets/d/...", px + 0.3, fy, pw - 0.6, t);
-  L.field(pres, s, "Google OAuth client ID", "1234567890-abc.apps.googleusercontent.com", px + 0.3, fy + 0.85, pw - 0.6, t);
-  L.field(pres, s, "Manager emails", "pi@lab.edu, manager@lab.edu", px + 0.3, fy + 1.7, pw - 0.6, t);
-  L.field(pres, s, "Employee emails", "alex@lab.edu, jamie@lab.edu, pat@lab.edu", px + 0.3, fy + 2.55, pw - 0.6, t);
-  // Sheet name fields - smaller in 2 cols
-  const fW = (pw - 0.9) / 2;
-  L.field(pres, s, "Registry sheet", "SheetRegistry", px + 0.3, fy + 3.4, fW, t);
-  L.field(pres, s, "RunLog sheet", "RunLog", px + 0.3 + fW + 0.3, fy + 3.4, fW, t);
+  s.addText("Managers", {
+    x: px + 0.3,
+    y: py + 0.95,
+    w: pw - 0.6,
+    h: 0.25,
+    fontSize: 11,
+    bold: true,
+    fontFace: L.FONTS.title,
+    color: t.accent,
+    margin: 0,
+  });
+  L.field(pres, s, "Priya Rao · manager@lab.edu", "Linked lab member: Alex Sharma", px + 0.3, py + 1.25, pw - 0.6, t);
+
+  s.addText("Lab members", {
+    x: px + 0.3,
+    y: py + 2.15,
+    w: pw - 0.6,
+    h: 0.25,
+    fontSize: 11,
+    bold: true,
+    fontFace: L.FONTS.title,
+    color: t.accent,
+    margin: 0,
+  });
+  L.field(pres, s, "Alex Sharma", "Task log · May 2026 · Active", px + 0.3, py + 2.45, pw - 0.6, t);
+  L.field(pres, s, "Jamie Lee", "Task log · May 2026 · Active", px + 0.3, py + 3.3, pw - 0.6, t);
+
+  L.secondaryButton(pres, s, "Fix missing setup sheets", px + 0.3, py + 4.25, 2.2, t);
+  L.secondaryButton(pres, s, "Grant task-log access", px + 2.65, py + 4.25, 2.0, t);
 }
 
 pres.writeFile({ fileName: "Manager-Dashboard.pptx" })

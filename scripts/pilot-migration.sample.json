@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "redacted": true,
+  "exportedAt": "2026-07-15T12:00:00.000Z",
+  "lab": {
+    "labId": "lab_redacted_001",
+    "adminWorkbookId": "admin_workbook_redacted"
+  },
+  "people": [
+    {
+      "legacyKey": "legacy-manager-01",
+      "displayName": "Pilot Person",
+      "email": "pilot-person@example.invalid",
+      "roles": ["employee", "manager"],
+      "active": true,
+      "memberId": "member_redacted_001",
+      "invitationId": "invitation_redacted_001",
+      "driveShared": true,
+      "pickerSpreadsheetId": "task_log_redacted_001",
+      "columnMapAccepted": true,
+      "taskLog": {
+        "spreadsheetId": "task_log_redacted_001",
+        "activeTab": "Tasks",
+        "availableTabs": ["Tasks", "Profile"],
+        "headers": ["Task ID", "Project", "Status"],
+        "columnMap": {
+          "taskId": "Task ID",
+          "project": "Project",
+          "status": "Status"
+        },
+        "tasks": [
+          { "row": 2, "taskId": "task-redacted-001", "source": "app" },
+          { "row": 3, "taskId": "task-redacted-002", "source": "external" }
+        ]
+      }
+    },
+    {
+      "legacyKey": "legacy-person-duplicate",
+      "displayName": "Pilot Person",
+      "email": "PILOT-PERSON@example.invalid",
+      "roles": ["employee"],
+      "active": true,
+      "memberId": "",
+      "invitationId": "",
+      "driveShared": false,
+      "pickerSpreadsheetId": "",
+      "columnMapAccepted": false,
+      "taskLog": {
+        "spreadsheetId": "task_log_redacted_001",
+        "activeTab": "Old Tasks",
+        "availableTabs": ["Tasks", "Profile"],
+        "headers": ["Task ID", "Project"],
+        "columnMap": {
+          "taskId": "Task ID",
+          "status": "Status"
+        },
+        "tasks": [
+          { "row": 2, "taskId": "", "source": "missing" },
+          { "row": 3, "taskId": "duplicate-redacted", "source": "external" },
+          { "row": 4, "taskId": "duplicate-redacted", "source": "external" }
+        ]
+      }
+    }
+  ]
+}

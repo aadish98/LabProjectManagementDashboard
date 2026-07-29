@@ -1,0 +1,152 @@
+name: Deploy backend to Cloud Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: Type the exact production GCP project ID
+        required: true
+        type: string
+      deploy:
+        description: Submit the Cloud Build and deploy after validation
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: backend-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Validate Firestore index declaration
+        run: |
+          node <<'NODE'
+          const indexes = require("./backend/firestore.indexes.json");
+          if (!Array.isArray(indexes.indexes) || indexes.indexes.length === 0) {
+            throw new Error("backend/firestore.indexes.json must declare at least one composite index.");
+          }
+          for (const index of indexes.indexes) {
+            if (
+              typeof index.collectionGroup !== "string" ||
+              typeof index.queryScope !== "string" ||
+              !Array.isArray(index.fields) ||
+              index.fields.length < 2
+            ) {
+              throw new Error("A Firestore composite index declaration is incomplete.");
+            }
+          }
+          NODE
+
+      - name: Typecheck and test backend
+        run: |
+          npm run typecheck --prefix backend
+          npm test --prefix backend
+          npm run build --prefix backend
+
+      - name: Build production container
+        run: docker build --file backend/Dockerfile backend
+
+  deploy:
+    if: ${{ inputs.deploy }}
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: backend-production
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+      CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }}
+      CLOUD_BUILD_SERVICE_ACCOUNT: ${{ vars.CLOUD_BUILD_SERVICE_ACCOUNT }}
+      ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
+      FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID }}
+      GOOGLE_OAUTH_CLIENT_IDS: ${{ vars.GOOGLE_OAUTH_CLIENT_IDS }}
+      CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
+      BOOTSTRAP_CLAIM_TTL_SECONDS: ${{ vars.BOOTSTRAP_CLAIM_TTL_SECONDS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm target project
+        env:
+          CONFIRMED_PROJECT_ID: ${{ inputs.project_id }}
+        run: |
+          test -n "${GCP_PROJECT_ID}"
+          test "${CONFIRMED_PROJECT_ID}" = "${GCP_PROJECT_ID}" || {
+            echo "Typed project ID does not match the protected environment." >&2
+            exit 1
+          }
+
+      - name: Authenticate to Google Cloud without keys
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          create_credentials_file: true
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Validate and submit deployment
+        run: backend/scripts/deploy.sh --deploy
+
+      - name: Verify declared Firestore indexes are ready
+        run: |
+          gcloud firestore indexes composite list \
+            --project="${GCP_PROJECT_ID}" \
+            --database="${FIRESTORE_DATABASE_ID:-(default)}" \
+            --format=json > "${RUNNER_TEMP}/firestore-indexes.json"
+          node <<'NODE'
+          const fs = require("node:fs");
+          const expected = require("./backend/firestore.indexes.json").indexes;
+          const actual = JSON.parse(
+            fs.readFileSync(`${process.env.RUNNER_TEMP}/firestore-indexes.json`, "utf8")
+          );
+          const collectionGroup = (index) =>
+            index.collectionGroup ??
+            index.name?.match(/\/collectionGroups\/([^/]+)\/indexes\//)?.[1];
+          const fields = (index) =>
+            (index.fields ?? [])
+              .filter((field) => field.fieldPath !== "__name__")
+              .map(({ fieldPath, order, arrayConfig }) => ({
+                fieldPath,
+                ...(order ? { order } : {}),
+                ...(arrayConfig ? { arrayConfig } : {})
+              }));
+          for (const declaration of expected) {
+            const match = actual.find(
+              (index) =>
+                collectionGroup(index) === declaration.collectionGroup &&
+                index.queryScope === declaration.queryScope &&
+                JSON.stringify(fields(index)) === JSON.stringify(declaration.fields)
+            );
+            if (!match) {
+              throw new Error(
+                `Declared Firestore index is missing: ${declaration.collectionGroup}.`
+              );
+            }
+            if (match.state !== "READY") {
+              throw new Error(
+                `Declared Firestore index is not ready: ${declaration.collectionGroup}.`
+              );
+            }
+          }
+          NODE

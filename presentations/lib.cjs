@@ -459,7 +459,7 @@ function tab(pres, slide, x, y, label, active, t) {
   return w;
 }
 
-function appTopBar(pres, slide, x, y, w, t, title, sub) {
+function appTopBar(pres, slide, x, y, w, t, title, sub, chipLabels) {
   slide.addText(title, {
     x,
     y,
@@ -485,11 +485,12 @@ function appTopBar(pres, slide, x, y, w, t, title, sub) {
   }
   // Right side action chips
   const chipY = y + 0.05;
-  const chips = [
-    { label: "alex@lab.edu", primary: false },
-    { label: "Setup", primary: false },
-    { label: "Sign out", primary: true },
-  ];
+  const defaultLabels = ["alex@lab.edu", "Setup", "Sign out"];
+  const labels = chipLabels ?? defaultLabels;
+  const chips = labels.map((label, index) => ({
+    label,
+    primary: index === labels.length - 1,
+  }));
   let cx = x + w;
   for (let i = chips.length - 1; i >= 0; i -= 1) {
     const c = chips[i];

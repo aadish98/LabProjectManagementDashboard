@@ -1,0 +1,20 @@
+.button,
+.view-switcher__button,
+.manager-tab,
+.role-checkbox,
+.employee-filter-option,
+.gantt-chip,
+.gantt-exception-card__action,
+.ui-segmented-control__option,
+.ui-tab-list__tab,
+.ui-status-banner__dismiss,
+.ui-dialog__close {
+  min-height: var(--control-hit-size);
+  min-width: var(--control-hit-size);
+}
+
+.ui-form-field__control > input,
+.ui-form-field__control > select,
+.ui-form-field__control > textarea {
+  min-height: var(--control-hit-size);
+}

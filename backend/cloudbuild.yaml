@@ -1,0 +1,240 @@
+timeout: 1800s
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: lab-workflow-backend
+  _AR_REPOSITORY: cloud-run
+  _RUNTIME_SERVICE_ACCOUNT: ''
+  _FIRESTORE_DATABASE_ID: (default)
+  _GOOGLE_OAUTH_CLIENT_IDS_B64: ''
+  _CORS_ALLOWED_ORIGINS_B64: ''
+  _BOOTSTRAP_CLAIM_TTL_SECONDS: '600'
+  _RELEASE_SHA: manual
+
+steps:
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file
+      - backend/Dockerfile
+      - --tag
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:${BUILD_ID}
+      - --tag
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:latest
+      - backend
+
+  - id: push-release-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:${BUILD_ID}
+    waitFor: [build-image]
+
+  - id: push-latest-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:latest
+    waitFor: [build-image]
+
+  - id: ensure-invitation-index
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        set +e
+        output="$$(gcloud firestore indexes composite create \
+          --project='${PROJECT_ID}' \
+          --database='${_FIRESTORE_DATABASE_ID}' \
+          --collection-group=invitations \
+          --query-scope=collection-group \
+          --field-config=field-path=normalizedEmail,order=ascending \
+          --field-config=field-path=status,order=ascending \
+          --field-config=field-path=expiresAt,order=ascending \
+          2>&1)"
+        status=$$?
+        set -e
+        if [[ $$status -ne 0 ]] && ! grep -Eqi 'ALREADY_EXISTS|already exists' <<< "$$output"; then
+          printf '%s\n' "$$output" >&2
+          exit $$status
+        fi
+        printf '%s\n' "$$output"
+
+  - id: wait-invitation-index
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        for attempt in $$(seq 1 60); do
+          gcloud firestore indexes composite list \
+            --project='${PROJECT_ID}' \
+            --database='${_FIRESTORE_DATABASE_ID}' \
+            --format=json > /tmp/firestore-indexes.json
+          if python3 - <<'PY'
+        import json
+
+        with open("/tmp/firestore-indexes.json", encoding="utf-8") as source:
+            indexes = json.load(source)
+
+        expected = [
+            ("normalizedEmail", "ASCENDING"),
+            ("status", "ASCENDING"),
+            ("expiresAt", "ASCENDING"),
+        ]
+
+        for index in indexes:
+            name = index.get("name", "")
+            group = index.get("collectionGroup")
+            if not group and "/collectionGroups/" in name:
+                group = name.split("/collectionGroups/", 1)[1].split("/", 1)[0]
+            fields = [
+                (field.get("fieldPath"), field.get("order"))
+                for field in index.get("fields", [])
+                if field.get("fieldPath") != "__name__"
+            ]
+            if group == "invitations" and fields == expected and index.get("state") == "READY":
+                raise SystemExit(0)
+        raise SystemExit(1)
+        PY
+          then
+            printf 'Invitation discovery index is READY.\n'
+            exit 0
+          fi
+          printf 'Waiting for invitation discovery index (%s/60).\n' "$$attempt"
+          sleep 10
+        done
+        printf 'Invitation discovery index did not become READY.\n' >&2
+        exit 1
+    waitFor: [ensure-invitation-index]
+
+  - id: deploy-cloud-run
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        oauth_client_ids="$$(printf '%s' '${_GOOGLE_OAUTH_CLIENT_IDS_B64}' | base64 --decode)"
+        cors_origins="$$(printf '%s' '${_CORS_ALLOWED_ORIGINS_B64}' | base64 --decode)"
+        gcloud run deploy '${_SERVICE}' \
+          --project='${PROJECT_ID}' \
+          --region='${_REGION}' \
+          --platform=managed \
+          --image='${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE}:${BUILD_ID}' \
+          --service-account='${_RUNTIME_SERVICE_ACCOUNT}' \
+          --port=8080 \
+          --execution-environment=gen2 \
+          --cpu=1 \
+          --memory=512Mi \
+          --concurrency=40 \
+          --timeout=60s \
+          --min-instances=0 \
+          --max-instances=10 \
+          --startup-probe='httpGet.path=/healthz,httpGet.port=8080,initialDelaySeconds=0,timeoutSeconds=3,periodSeconds=5,failureThreshold=12' \
+          --liveness-probe='httpGet.path=/healthz,httpGet.port=8080,initialDelaySeconds=0,timeoutSeconds=3,periodSeconds=30,failureThreshold=3' \
+          --set-env-vars="^@^GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@FIRESTORE_DATABASE_ID=${_FIRESTORE_DATABASE_ID}@GOOGLE_OAUTH_CLIENT_IDS=$${oauth_client_ids}@CORS_ALLOWED_ORIGINS=$${cors_origins}@BOOTSTRAP_CLAIM_TTL_SECONDS=${_BOOTSTRAP_CLAIM_TTL_SECONDS}" \
+          --labels="component=backend,managed-by=cloud-build,release-sha=${_RELEASE_SHA}" \
+          --ingress=all \
+          --allow-unauthenticated \
+          --no-traffic \
+          --tag="candidate-${BUILD_ID}" \
+          --quiet
+    waitFor: [push-release-image, ensure-invitation-index]
+
+  - id: smoke-check-candidate
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        candidate_tag='candidate-${BUILD_ID}'
+        service_json="$$(gcloud run services describe '${_SERVICE}' \
+          --project='${PROJECT_ID}' \
+          --region='${_REGION}' \
+          --format=json)"
+        candidate_url="$$(printf '%s' "$$service_json" | python3 -c \
+          'import json,sys; tag=sys.argv[1]; data=json.load(sys.stdin); print(next((item.get("url", "") for item in data.get("status", {}).get("traffic", []) if item.get("tag") == tag), ""))' \
+          "$$candidate_tag")"
+        test -n "$$candidate_url"
+        curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 \
+          "$${candidate_url}/healthz"
+        printf '\n'
+        curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 \
+          "$${candidate_url}/readyz"
+        headers="$$(mktemp)"
+        body="$$(mktemp)"
+        status="$$(curl --silent --show-error \
+          --dump-header "$$headers" \
+          --output "$$body" \
+          --write-out '%{http_code}' \
+          "$${candidate_url}/v1/me/invitations")"
+        test "$$status" = 401
+        python3 -c \
+          'import json,sys; body=json.load(open(sys.argv[1])); assert body["error"]["code"] == "ID_TOKEN_REQUIRED"' \
+          "$$body"
+        grep -Eqi '^cache-control:[[:space:]]*no-store' "$$headers"
+        grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' "$$headers"
+        grep -Eqi '^x-request-id:[[:space:]]*[^[:space:]]+' "$$headers"
+        printf '\nCandidate URL passed: %s\n' "$$candidate_url"
+    waitFor: [deploy-cloud-run, wait-invitation-index]
+
+  - id: promote-candidate
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        candidate_tag='candidate-${BUILD_ID}'
+        service_json="$$(gcloud run services describe '${_SERVICE}' \
+          --project='${PROJECT_ID}' \
+          --region='${_REGION}' \
+          --format=json)"
+        candidate_revision="$$(printf '%s' "$$service_json" | python3 -c \
+          'import json,sys; tag=sys.argv[1]; data=json.load(sys.stdin); print(next((item.get("revisionName", "") for item in data.get("status", {}).get("traffic", []) if item.get("tag") == tag), ""))' \
+          "$$candidate_tag")"
+        test -n "$$candidate_revision"
+        gcloud run services update-traffic '${_SERVICE}' \
+          --project='${PROJECT_ID}' \
+          --region='${_REGION}' \
+          --to-revisions="$${candidate_revision}=100" \
+          --quiet
+    waitFor: [smoke-check-candidate]
+
+  - id: smoke-check-promoted-service
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        service_url="$$(gcloud run services describe '${_SERVICE}' \
+          --project='${PROJECT_ID}' \
+          --region='${_REGION}' \
+          --format='value(status.url)')"
+        test -n "$$service_url"
+        curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 \
+          "$${service_url}/healthz"
+        printf '\n'
+        curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 \
+          "$${service_url}/readyz"
+        headers="$$(mktemp)"
+        body="$$(mktemp)"
+        status="$$(curl --silent --show-error \
+          --dump-header "$$headers" \
+          --output "$$body" \
+          --write-out '%{http_code}' \
+          "$${service_url}/v1/me/invitations")"
+        test "$$status" = 401
+        python3 -c \
+          'import json,sys; body=json.load(open(sys.argv[1])); assert body["error"]["code"] == "ID_TOKEN_REQUIRED"' \
+          "$$body"
+        grep -Eqi '^cache-control:[[:space:]]*no-store' "$$headers"
+        grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' "$$headers"
+        grep -Eqi '^x-request-id:[[:space:]]*[^[:space:]]+' "$$headers"
+        printf '\nDeployed URL: %s\n' "$$service_url"
+    waitFor: [promote-candidate]

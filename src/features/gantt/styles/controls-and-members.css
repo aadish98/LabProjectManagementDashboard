@@ -1,0 +1,263 @@
+/* ---------- Filter / range card ---------- */
+
+.gantt-filter-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem 1.25rem;
+  align-items: end;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--gantt-line);
+  border-radius: 12px;
+  background: var(--gantt-bg-elevated);
+}
+
+.gantt-filter-card__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.gantt-filter-card__intro strong {
+  color: var(--gantt-ink-100);
+  font-family: var(--gantt-body-font);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: -0.005em;
+}
+
+.gantt-filter-card__intro p {
+  margin: 0;
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.76rem;
+  letter-spacing: 0.01em;
+}
+
+.gantt-quick-ranges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.55rem;
+}
+
+.gantt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--gantt-line);
+  background: transparent;
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.gantt-chip:hover {
+  color: var(--gantt-ink-100);
+  border-color: var(--gantt-line-strong);
+}
+
+.gantt-chip--active {
+  color: var(--gantt-ink-100);
+  background: rgba(157, 184, 166, 0.14);
+  border-color: rgba(157, 184, 166, 0.35);
+}
+
+.gantt-chip__icon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.85;
+}
+
+.gantt-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 0.65rem;
+}
+
+.gantt-control-field {
+  min-width: 0;
+}
+
+.gantt-control-field span {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.gantt-control-field input,
+.gantt-control-field select {
+  width: 100%;
+  min-height: var(--control-hit-size);
+  padding: 0.5rem 0.75rem;
+  background: #262523;
+  border: 1px solid var(--gantt-line-strong);
+  border-radius: 8px;
+  color: var(--gantt-ink-100);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.gantt-control-field input:focus,
+.gantt-control-field select:focus {
+  border-color: rgba(157, 184, 166, 0.4);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(157, 184, 166, 0.22);
+}
+
+.gantt-control-field input::-webkit-calendar-picker-indicator {
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+/* density toggle */
+
+.gantt-density {
+  display: inline-flex;
+  padding: 0.22rem;
+  border: 1px solid var(--gantt-line);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.gantt-density button {
+  border: 0;
+  background: transparent;
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.gantt-density button:hover {
+  color: var(--gantt-ink-100);
+}
+
+.gantt-density button[aria-pressed="true"] {
+  background: rgba(157, 184, 166, 0.14);
+  color: var(--gantt-accent);
+}
+
+/* ---------- Member selector ---------- */
+
+.gantt-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--gantt-line);
+  border-radius: 12px;
+  background: var(--gantt-bg-elevated);
+}
+
+.gantt-selector header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.gantt-selector header strong {
+  color: var(--gantt-ink-100);
+  font-family: var(--gantt-body-font);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.gantt-selector header p {
+  margin: 0.2rem 0 0;
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.74rem;
+  letter-spacing: 0.01em;
+}
+
+.gantt-selector__toolbar {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.gantt-selector__toolbar .button {
+  min-height: var(--control-hit-size);
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--gantt-line);
+  background: transparent;
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.gantt-selector__toolbar .button:hover {
+  color: var(--gantt-ink-100);
+  border-color: var(--gantt-line-strong);
+  background: transparent;
+  transform: none;
+}
+
+.gantt-selector__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.gantt-selector__option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem 0.4rem 0.4rem;
+  border: 1px solid var(--gantt-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gantt-ink-300);
+  font-family: var(--gantt-body-font);
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.gantt-selector__option:hover {
+  color: var(--gantt-ink-100);
+  border-color: var(--gantt-line-strong);
+}
+
+.gantt-selector__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gantt-selector__option:has(input:checked) {
+  border-color: var(--member-border);
+  background: var(--member-surface);
+  color: var(--gantt-ink-100);
+}
+
+.gantt-selector__option:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px rgba(157, 184, 166, 0.22);
+}

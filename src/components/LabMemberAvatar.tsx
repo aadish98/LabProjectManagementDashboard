@@ -8,9 +8,9 @@ interface LabMemberAvatarProps {
 
 export function memberStyleVars(profile?: LabMemberProfile): CSSProperties {
   return {
-    "--member-accent": profile?.accentColor ?? "#93c5fd",
-    "--member-surface": profile?.accentSurface ?? "rgba(147, 197, 253, 0.12)",
-    "--member-border": profile?.accentBorder ?? "rgba(147, 197, 253, 0.34)"
+    "--member-accent": profile?.accentColor ?? "#9cb5a3",
+    "--member-surface": profile?.accentSurface ?? "rgba(156, 181, 163, 0.12)",
+    "--member-border": profile?.accentBorder ?? "rgba(156, 181, 163, 0.38)"
   } as CSSProperties;
 }
 

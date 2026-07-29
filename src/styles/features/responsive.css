@@ -1,0 +1,96 @@
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1180px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lab-member__main {
+    grid-template-columns: minmax(10rem, 14rem) minmax(12rem, 16rem) minmax(12rem, 1fr) auto;
+  }
+
+  .kanban-board,
+  .kanban-board--four {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 880px) {
+  .lab-member__main {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lab-member__meta {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0;
+  }
+
+  .lab-manager-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .lab-row__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .form-grid,
+  .metric-grid,
+  .lab-member__main,
+  .lab-member__advanced-body,
+  .lab-manager-row,
+  .task-detail-grid,
+  .kanban-board,
+  .kanban-board--four {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-setup__workbook,
+  .lab-setup__section-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lab-save-controls {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .lab-field--role select,
+  .lab-field--status select {
+    width: 100%;
+  }
+
+  .workbook-chip {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workbook-chip__text small {
+    white-space: normal;
+  }
+
+  .setup-step + .setup-step::before {
+    width: 1.25rem;
+    margin: 0 0.4rem;
+  }
+
+  .page-shell {
+    padding: 1rem 1rem 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

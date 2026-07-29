@@ -1,0 +1,21 @@
+.page-shell,
+.employee-shell,
+.manager-shell {
+  padding-bottom: var(--safe-action-bottom);
+}
+
+.manager-shell--with-actions {
+  padding-bottom: var(--safe-manager-actions-bottom);
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  inset: max(0.75rem, env(safe-area-inset-top)) auto auto 0.75rem;
+}
+
+.tasks-region:focus,
+#tasks-main:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

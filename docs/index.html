@@ -51,7 +51,7 @@
             </div>
             <div class="status-item">
               <span>Storage model</span>
-              <p>No separate hosted backend for Google user data.</p>
+              <p>Cloud Run API, Firestore app records, and user-controlled Google Sheets.</p>
             </div>
           </div>
         </aside>
@@ -68,8 +68,26 @@
         </article>
         <article class="mini-card">
           <h3>Built around access</h3>
-          <p>The app uses Google sign-in and respects the user's existing Google Drive permissions.</p>
+          <p>
+            The Tauri app uses Google sign-in, per-account Picker grants, and transient Drive-token
+            processing.
+          </p>
         </article>
+      </section>
+
+      <section class="docs-card" aria-label="Project documentation">
+        <p class="eyebrow">Documentation</p>
+        <h2>Setup, access, and deployment</h2>
+        <div class="doc-link-grid">
+          <a href="../README.md">
+            <span>Project README</span>
+            <p>Onboarding, OAuth, roles, spreadsheet structure, compliance, and build commands.</p>
+          </a>
+          <a href="PRIVACY/README.md">
+            <span>Privacy policy</span>
+            <p>What the app accesses, how data is stored, and Google API limited use.</p>
+          </a>
+        </div>
       </section>
 
       <footer>

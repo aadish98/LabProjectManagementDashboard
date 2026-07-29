@@ -1,0 +1,158 @@
+name: Build desktop installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_base_url:
+        description: HTTPS origin of the deployed Cloud Run backend (no trailing slash)
+        required: true
+        type: string
+  push:
+    tags:
+      - 'app-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-tauri:
+    env:
+      VITE_BACKEND_BASE_URL: ${{ inputs.backend_base_url || vars.VITE_BACKEND_BASE_URL || secrets.VITE_BACKEND_BASE_URL }}
+      VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
+      VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY || secrets.VITE_GOOGLE_API_KEY }}
+      VITE_GOOGLE_APP_ID: ${{ vars.VITE_GOOGLE_APP_ID || secrets.VITE_GOOGLE_APP_ID }}
+      VITE_ADMIN_SPREADSHEET_ID: ${{ vars.VITE_ADMIN_SPREADSHEET_ID || secrets.VITE_ADMIN_SPREADSHEET_ID }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+            artifact_name: macos-arm64
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+            artifact_name: macos-x64
+          - platform: windows-latest
+            args: ''
+            artifact_name: windows-x64
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate required build configuration
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+
+          const required = [
+            "VITE_BACKEND_BASE_URL",
+            "VITE_GOOGLE_CLIENT_ID",
+            "VITE_GOOGLE_API_KEY",
+            "VITE_GOOGLE_APP_ID",
+            "VITE_ADMIN_SPREADSHEET_ID"
+          ];
+          const missing = required.filter((name) => !process.env[name]?.trim());
+          if (missing.length) {
+            console.error(`Missing required build variables: ${missing.join(", ")}`);
+            process.exit(1);
+          }
+          let backend;
+          try {
+            backend = new URL(process.env.VITE_BACKEND_BASE_URL);
+          } catch {
+            console.error("VITE_BACKEND_BASE_URL must be a valid URL.");
+            process.exit(1);
+          }
+          if (
+            backend.protocol !== "https:" ||
+            backend.origin !== process.env.VITE_BACKEND_BASE_URL.trim()
+          ) {
+            console.error(
+              "VITE_BACKEND_BASE_URL must be an HTTPS origin without a path or trailing slash."
+            );
+            process.exit(1);
+          }
+
+          if (process.env.GITHUB_REF?.startsWith("refs/tags/app-v")) {
+            const signingVariables = ["TAURI_SIGNING_PRIVATE_KEY"];
+            const missingSigningVariables = signingVariables.filter(
+              (name) => process.env[name] === undefined || !process.env[name].trim()
+            );
+            if (missingSigningVariables.length) {
+              console.error(
+                `Missing updater signing secrets: ${missingSigningVariables.join(", ")}`
+              );
+              process.exit(1);
+            }
+
+            const tauriConfig = JSON.parse(
+              readFileSync("src-tauri/tauri.conf.json", "utf8")
+            );
+            const publicKey = tauriConfig.plugins?.updater?.pubkey?.trim();
+            if (!publicKey || publicKey === "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY") {
+              console.error(
+                "Replace plugins.updater.pubkey in src-tauri/tauri.conf.json before publishing."
+              );
+              process.exit(1);
+            }
+
+            const expectedTag = `app-v${tauriConfig.version}`;
+            if (process.env.GITHUB_REF_NAME !== expectedTag) {
+              console.error(
+                `Release tag ${process.env.GITHUB_REF_NAME} does not match app version ${tauriConfig.version}; expected ${expectedTag}.`
+              );
+              process.exit(1);
+            }
+          }
+          NODE
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build and release (tag push)
+        if: startsWith(github.ref, 'refs/tags/app-v')
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: app-v__VERSION__
+          releaseName: Lab Workflow Desktop v__VERSION__
+          # Publish the draft release after CI finishes so
+          # releases/latest/download/latest.json resolves for the in-app updater.
+          releaseBody: 'Windows (.exe) and macOS (.dmg) installers. Publish this draft release to enable in-app auto-update.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      - name: Build (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run tauri:build -- ${{ matrix.args }}
+
+      - name: Upload installer artifacts
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            src-tauri/target/**/bundle/nsis/*.exe
+            src-tauri/target/**/bundle/dmg/*.dmg

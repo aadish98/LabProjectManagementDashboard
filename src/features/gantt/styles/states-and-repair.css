@@ -1,0 +1,266 @@
+
+.gantt-chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--gantt-ink-500);
+}
+
+.gantt-chart-empty strong {
+  color: var(--gantt-ink-100);
+  font-family: var(--gantt-display-font);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.gantt-chart-empty p {
+  margin: 0;
+  max-width: 40ch;
+  font-family: var(--gantt-mono-font);
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Empty / global states ---------- */
+
+.gantt-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px dashed var(--gantt-line-strong);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--gantt-ink-500);
+}
+
+.gantt-empty-state strong {
+  color: var(--gantt-ink-100);
+  font-family: var(--gantt-display-font);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: -0.005em;
+}
+
+.gantt-empty-state p {
+  margin: 0;
+  font-family: var(--gantt-mono-font);
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Repair queue (exceptions) ---------- */
+
+.gantt-exceptions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--gantt-amber-soft);
+  border-color: rgba(199, 163, 106, 0.3);
+  border-radius: 12px;
+  background: var(--gantt-amber-soft);
+}
+
+.gantt-exceptions__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.gantt-exceptions__header h3 {
+  margin: 0;
+  color: var(--gantt-ink-100);
+  font-family: var(--gantt-display-font);
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+.gantt-exceptions__header p {
+  margin: 0;
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+}
+
+.gantt-exception-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.gantt-exception-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--gantt-line);
+  border-radius: 12px;
+  background: var(--gantt-bg-paper);
+  box-shadow: inset 3px 0 0 0 var(--member-accent);
+}
+
+.gantt-exception-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-left: 0.4rem;
+}
+
+.gantt-exception-group__header strong {
+  color: var(--gantt-ink-100);
+  font-family: var(--gantt-body-font);
+  font-weight: 600;
+}
+
+.gantt-exception-group__header > span:last-child {
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.gantt-exception-group__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.65rem;
+}
+
+.gantt-exception-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--gantt-line);
+  border-radius: 10px;
+  background: var(--gantt-bg-elevated);
+  overflow: hidden;
+}
+
+.gantt-exception-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--member-accent);
+  opacity: 0.7;
+}
+
+.gantt-exception-card__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--gantt-ink-300);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.gantt-exception-card__identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.gantt-exception-card__badge {
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(199, 163, 106, 0.12);
+  border: 1px solid rgba(199, 163, 106, 0.32);
+  color: var(--gantt-amber);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.gantt-exception-card > strong {
+  color: var(--gantt-ink-100);
+  font-family: var(--gantt-display-font);
+  font-weight: 600;
+  font-size: 0.98rem;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.gantt-exception-card__meta {
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+
+.gantt-exception-card__reasons {
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--gantt-amber);
+  font-family: var(--gantt-body-font);
+  font-size: 0.83rem;
+}
+
+.gantt-exception-card__reasons li + li {
+  margin-top: 0.15rem;
+}
+
+.gantt-exception-card__dates {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+
+.gantt-exception-card__action {
+  align-self: flex-start;
+  margin-top: 0.2rem;
+  min-height: var(--control-hit-size);
+  min-width: var(--control-hit-size);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--gantt-line-strong);
+  background: transparent;
+  color: var(--gantt-ink-300);
+  font-family: var(--gantt-mono-font);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  box-shadow: none;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.gantt-exception-card__action:hover {
+  color: var(--gantt-ink-100);
+  border-color: var(--gantt-line-strong);
+  background: rgba(232, 230, 225, 0.05);
+  transform: none;
+}
+
+.gantt-exception-card__action.button--primary {
+  background: var(--gantt-accent-deep);
+  color: #f2f5f0;
+  border-color: var(--gantt-accent-deep);
+}
+
+.gantt-exception-card__action.button--primary:hover {
+  background: #5a7a66;
+  border-color: #5a7a66;
+  filter: none;
+}

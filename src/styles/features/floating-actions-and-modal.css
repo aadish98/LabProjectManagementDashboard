@@ -1,0 +1,173 @@
+/* ---------- Floating action buttons ---------- */
+
+.fab {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--accent-strong);
+  background: var(--accent-strong);
+  color: var(--on-accent);
+  font-size: 1.5rem;
+  line-height: 1;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms ease;
+}
+
+.fab:hover:not(:disabled) {
+  background: var(--accent-strong-hover);
+}
+
+.fab:focus-visible {
+  outline: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), var(--focus-ring);
+}
+
+.fab__icon {
+  display: block;
+}
+
+.fab-group {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  max-width: calc(100vw - max(2rem, env(safe-area-inset-left) + env(safe-area-inset-right)));
+  max-height: calc(100dvh - max(2rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-end;
+  z-index: 5;
+}
+
+.fab-group .fab {
+  position: static;
+}
+
+.fab--secondary {
+  width: auto;
+  height: auto;
+  min-height: 3rem;
+  border-radius: 999px;
+  padding: 0.5rem 1.05rem 0.5rem 0.6rem;
+  font-size: 0.88rem;
+  color: var(--text-1);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.fab--secondary:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--accent-border);
+}
+
+.fab--secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), var(--focus-ring);
+}
+
+.fab--secondary:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.fab--secondary__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.fab--secondary.is-loading .fab--secondary__icon svg {
+  animation: fab-spin 0.9s linear infinite;
+}
+
+@keyframes fab-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fab--secondary__text {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.fab__title {
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+.fab__sub {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Modal ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 9, 0.62);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow-y: auto;
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  background: var(--surface-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 4rem);
+  box-shadow: var(--shadow-pop);
+}
+
+.modal-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-card__header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-card__body {
+  padding: 1.5rem;
+  overflow-y: auto;
+}

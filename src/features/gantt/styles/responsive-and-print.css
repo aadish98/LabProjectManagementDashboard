@@ -1,0 +1,67 @@
+/* ---------- Responsive ---------- */
+
+@media (max-width: 920px) {
+  .gantt-panel__header {
+    grid-template-columns: 1fr;
+  }
+  .gantt-toolbar {
+    align-self: flex-start;
+  }
+  .gantt-filter-card {
+    grid-template-columns: 1fr;
+  }
+  .gantt-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .gantt-panel__body {
+    padding: 1rem 1rem 1.2rem;
+  }
+  .gantt-panel__header {
+    padding: 1.2rem 1rem 0.9rem;
+  }
+  .gantt-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Print (light on paper) ---------- */
+
+@media print {
+  body.gantt-printing * {
+    visibility: hidden;
+  }
+
+  body.gantt-printing [data-print-region="gantt"],
+  body.gantt-printing [data-print-region="gantt"] * {
+    visibility: visible;
+  }
+
+  body.gantt-printing [data-print-region="gantt"] {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    background: white;
+    color: #1c1c1a;
+  }
+
+  body.gantt-printing .gantt-scroll {
+    overflow: visible;
+  }
+
+  body.gantt-printing .gantt-print-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.6rem;
+    border: 1px solid #c9c7c0;
+    border-radius: 8px;
+    color: #1c1c1a;
+    background: white;
+    font-family: var(--gantt-body-font);
+  }
+}

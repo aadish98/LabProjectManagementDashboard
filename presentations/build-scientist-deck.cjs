@@ -118,13 +118,13 @@ const FOOT = "Lab Workflow · Researcher functionality";
       n: 2,
       label: "Connect task log",
       detail:
-        "Paste your Google Sheet URL and tab name once. The app remembers it.",
+        "Choose your task log from Drive, pick the active tab, and map columns once.",
     },
     {
       n: 3,
       label: "Manage tasks",
       detail:
-        "Create, edit, and review experiments from a kanban board organized by status.",
+        "Create, edit, and review experiments from Kanban or Gantt views.",
     },
     {
       n: 4,
@@ -202,10 +202,10 @@ const FOOT = "Lab Workflow · Researcher functionality";
   L.addBodyText(
     s,
     [
-      "Sign in with the Google account that already has access to your task log spreadsheet.",
-      "No separate username, password, or invite — the app uses Google's standard sign-in.",
-      "Your role (lab member or manager) is determined automatically from a configured allow-list.",
-      "If your account isn't on the list, you'll see a clear unauthorized notice instead of any data.",
+      "Sign in with the Google account that has access to your task log spreadsheet.",
+      "Your role is determined from the admin workbook Roles tab — or from Drive access when you cannot reach it.",
+      "No separate username or password — the app uses Google's standard sign-in.",
+      "If your account is not listed in Roles while others are, you will see an unauthorized notice.",
     ],
     0.6,
     1.9,
@@ -280,18 +280,19 @@ const FOOT = "Lab Workflow · Researcher functionality";
   L.addBodyText(
     s,
     [
-      "Paste the URL of your personal task-log Google Sheet.",
-      "Type the exact tab name you're using (e.g. Sept 2026).",
-      "The app validates that the sheet and tab exist before letting you continue.",
-      "Stored locally on this device — you only do this once per machine.",
-      "Use Setup later to swap to a different tab or a new monthly sheet.",
+      "Click Choose from Drive and pick your personal task-log spreadsheet.",
+      "Select the active sheet or tab that contains your current task list.",
+      "Review how app fields map to your sheet columns — add missing columns if prompted.",
+      "Optionally upload a profile photo, or skip and use initials.",
+      "Preferences are stored locally on this device for your signed-in email.",
+      "Use Change task log later to switch tabs or connect a different workbook.",
     ],
     0.6,
     1.9,
     5.6,
     4.5,
     t,
-    13.5,
+    13,
   );
 
   const mx = 6.7;
@@ -299,7 +300,6 @@ const FOOT = "Lab Workflow · Researcher functionality";
   const mw = 6.0;
   const mh = 4.6;
   L.panel(pres, s, mx, my, mw, mh, t);
-  // Setup card
   const cx = mx + 0.4;
   const cy = my + 0.4;
   const cw = mw - 0.8;
@@ -325,28 +325,10 @@ const FOOT = "Lab Workflow · Researcher functionality";
     color: t.mutedText,
     margin: 0,
   });
-  L.field(
-    pres,
-    s,
-    "Task log spreadsheet URL",
-    "https://docs.google.com/spreadsheets/d/...",
-    cx + 0.3,
-    cy + 1.15,
-    cw - 0.6,
-    t,
-  );
-  L.field(
-    pres,
-    s,
-    "Active sheet / tab name",
-    "e.g. Sept 2026",
-    cx + 0.3,
-    cy + 2.0,
-    cw - 0.6,
-    t,
-  );
-  L.primaryButton(pres, s, "Validate and continue", cx + 0.3, cy + 2.95, 2.5, t);
-  L.secondaryButton(pres, s, "Sign out", cx + 2.95, cy + 2.95, 1.2, t);
+  L.field(pres, s, "Selected workbook", "Alex Task Log", cx + 0.3, cy + 1.05, cw - 0.6, t);
+  L.field(pres, s, "Active tab", "May 2026", cx + 0.3, cy + 1.85, cw - 0.6, t);
+  L.primaryButton(pres, s, "Connect task log", cx + 0.3, cy + 2.75, 1.85, t);
+  L.secondaryButton(pres, s, "Reconnect Google", cx + 2.3, cy + 2.75, 1.8, t);
 }
 
 /* ---------- Slide 5: Your workspace at a glance ---------- */
@@ -363,13 +345,17 @@ const FOOT = "Lab Workflow · Researcher functionality";
     1.7,
     12.13,
     t,
-    "Your task log",
-    "Source: Google Sheets · Last sync 2 minutes ago",
+    "Alex Sharma",
+    "Task log · tab May 2026",
+    ["alex@lab.edu", "Change task log", "Sign out"],
   );
 
+  L.pill(pres, s, "Kanban", 0.6, 2.25, 0.75, "064E3B", "BBF7D0");
+  L.pill(pres, s, "Gantt", 1.45, 2.25, 0.65, "1E293B", t.bodyText);
+
   // 4 lanes
-  const laneY = 2.4;
-  const laneH = 4.5;
+  const laneY = 2.75;
+  const laneH = 4.15;
   const totalW = 12.13;
   const gap = 0.18;
   const laneW = (totalW - 3 * gap) / 4;
@@ -576,7 +562,7 @@ const FOOT = "Lab Workflow · Researcher functionality";
   }
   // feedback line
   s.addText(
-    "Compliance: missing notebook location.",
+    "Compliance: Missing: Schematic.",
     {
       x: cx + 0.3,
       y: cy + 3.1,
@@ -724,7 +710,7 @@ const FOOT = "Lab Workflow · Researcher functionality";
   const mx = 6.4;
   const my = 1.9;
   const mw = 6.3;
-  const mh = 4.9;
+  const mh = 5.2;
   L.panel(pres, s, mx, my, mw, mh, t);
   // Modal header
   s.addText("New task", {
@@ -768,9 +754,10 @@ const FOOT = "Lab Workflow · Researcher functionality";
   L.field(pres, s, "Start date", "2026-04-12", mx + 0.3, fy + 1.7, fW, t);
   L.field(pres, s, "Projected end date", "2026-04-22", mx + 0.3 + fW + 0.3, fy + 1.7, fW, t);
   L.field(pres, s, "Schematic", "https://...", mx + 0.3, fy + 2.55, mw - 0.6, t);
+  L.field(pres, s, "Link to data", "https://...", mx + 0.3, fy + 3.3, mw - 0.6, t);
   // Buttons
-  L.primaryButton(pres, s, "Save task", mx + 0.3, fy + 3.45, 1.7, t);
-  L.secondaryButton(pres, s, "Cancel", mx + 2.1, fy + 3.45, 1.1, t);
+  L.primaryButton(pres, s, "Save task", mx + 0.3, fy + 4.1, 1.7, t);
+  L.secondaryButton(pres, s, "Cancel", mx + 2.1, fy + 4.1, 1.1, t);
 }
 
 /* ---------- Slide 8: Mark a task complete ---------- */
@@ -1087,7 +1074,7 @@ const FOOT = "Lab Workflow · Researcher functionality";
   L.addBodyText(
     s,
     [
-      "Your task-log URL and active tab name (so setup is one-time per machine).",
+      "Your task-log connection, column mappings, and optional profile photo (one-time per machine).",
       "A small dataset cache so the board still loads if the network blips.",
       "None of this is your experiment data — that always lives in the sheet.",
       "Sign out clears your session; no shared state with anyone else's device.",

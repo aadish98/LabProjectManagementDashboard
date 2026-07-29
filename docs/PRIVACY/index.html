@@ -17,11 +17,12 @@
           <span class="brand-mark" aria-hidden="true"></span>
           <span>Lab Project Management Dashboard</span>
         </a>
+        <a href="../TERMS/">Terms of Service</a>
         <a href="../">Home</a>
       </nav>
 
       <article class="policy-card">
-        <p class="eyebrow">Last updated: April 24, 2026</p>
+        <p class="eyebrow">Last updated: July 29, 2026</p>
         <h1>Privacy Policy</h1>
         <p class="lede">
           Lab Project Management Dashboard is a desktop application for managing lab workflow
@@ -33,45 +34,67 @@
         <p>The application uses Google sign-in and may request access to:</p>
         <ul>
           <li>
-            Your Google account profile information, such as your name and email address, to
-            identify the signed-in user and determine whether the user has manager or employee
-            access.
+            Your stable Google subject, name, verified email address, and picture, to identify the
+            signed-in user and look up authoritative Firestore memberships or invitations.
           </li>
           <li>
-            Google Sheets files that your Google account is authorized to access, including task
-            logs, compliance records, feedback records, and related workflow spreadsheets.
+            Google Sheets files that you explicitly select with Google Picker or that are selected
+            by a manager for this app, including task logs, compliance records, feedback records,
+            and related workflow spreadsheets.
           </li>
           <li>
             Spreadsheet metadata, such as sheet names and spreadsheet titles, so the application
             can find the correct worksheet tabs.
           </li>
         </ul>
-        <p>The application only accesses Google Sheets data needed to provide the workflow features shown in the app.</p>
+        <p>
+          The application uses per-file Google Drive access and only accesses Google Sheets data
+          needed to provide the workflow features shown in the app.
+        </p>
+        <p>
+          Picker authorization is specific to both the Google account and selected file. One
+          manager's selection does not authorize another manager, PI, or employee.
+        </p>
 
         <h2>How We Use Information</h2>
         <p>Information accessed through Google APIs is used to:</p>
         <ul>
-          <li>Sign users in and identify their role.</li>
+          <li>Sign users in and load authoritative Firestore memberships, roles, invitations, and onboarding state.</li>
           <li>Display lab task logs, dashboards, compliance summaries, feedback, and related workflow views.</li>
           <li>Create, update, or organize task-log records at the user's request.</li>
           <li>Validate spreadsheet setup and show helpful error messages when required sheets or columns are missing.</li>
+          <li>Authenticate Cloud Run requests by verifying a short-lived Google ID token.</li>
         </ul>
         <p>Google user data is not used for advertising, unrelated analytics, or profiling.</p>
 
-        <h2>Data Storage</h2>
+        <h2>Data Storage and Processing</h2>
         <p>
-          The application does not operate a separate backend server for storing Google user data.
-          Workflow data remains in the Google Sheets files controlled by the user or the user's
-          organization.
+          The supported desktop application uses a Cloud Run API and Firestore. Cloud Run verifies
+          Google ID tokens. Firestore stores labs, stable member and invitation IDs, normalized
+          emails, roles, workbook IDs, tabs, proposed and accepted shared column maps, onboarding
+          status, revisions, idempotency records, and onboarding audit events. Workflow task
+          contents remain in Google Sheets controlled by the user or the user's organization;
+          compatibility rows in <code>SheetRegistry</code> and <code>Roles</code> are not
+          authorization sources.
         </p>
         <p>
-          Some setup preferences, such as selected spreadsheet URLs, sheet names, or role
-          configuration, may be stored locally on the user's device so the app can reopen with the
-          same settings.
+          Google Drive access tokens are processed in Cloud Run memory only for the requested
+          operation and are then discarded. Drive access and refresh tokens are not stored in
+          Firestore.
+        </p>
+        <p>
+          Non-secret setup preferences and visibly stale caches may be stored locally. Desktop
+          refresh tokens are stored in the operating system credential vault; access and ID tokens
+          are held in memory only and are not persisted in WebView local storage. None of those
+          OAuth tokens are intentionally written to application logs. Startup does not expose a
+          signed-in workspace until vault hydration and token refresh complete.
         </p>
 
         <h2>Data Sharing</h2>
-        <p>The application does not sell, rent, or share Google user data with third parties.</p>
+        <p>
+          The application does not sell, rent, or use Google user data for advertising. Google
+          Cloud processes data as the infrastructure provider for Cloud Run and Firestore.
+        </p>
         <p>
           Data may be visible to other people only through the user's existing Google Drive or
           Google Sheets sharing settings. Users and administrators are responsible for managing
@@ -86,23 +109,39 @@
 
         <h2>Data Retention and Deletion</h2>
         <p>
-          Because workflow data is stored in Google Sheets, users can delete or modify that data
-          directly in the relevant spreadsheet.
+          Workflow data in Google Sheets can be deleted or modified directly. Firestore application
+          records and account metadata are retained while the account or lab uses the service; most
+          records do not expire automatically. Invitations and bootstrap claims have application
+          expiry fields, but cleanup and retention must still be operated and verified. The current
+          app supports member deactivation and invitation revocation, but an account or lab
+          hard-delete request requires a controlled operator procedure and verification.
+        </p>
+        <p>
+          Drive tokens have no server-side retention period because Cloud Run processes them
+          transiently and does not write them to Firestore. Cloud-provider backup and operational-log
+          lifecycle settings may delay complete removal from managed recovery systems; tokens and
+          spreadsheet contents must not be included in application logs.
         </p>
         <p>
           Users can also revoke the application's Google access at any time from their
           <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>.
         </p>
         <p>
-          Locally stored application preferences can be removed by clearing the application's local
-          data on the user's device or uninstalling the application.
+          Signing out attempts Google token revocation and clears in-memory tokens, local session
+          metadata, and the credential-vault entry even when network revocation fails. Other local
+          preferences can be removed by clearing application data or uninstalling. A vault error
+          may require manual removal through the operating system.
         </p>
 
         <h2>Security</h2>
         <p>
-          The application uses Google's OAuth flow for authentication and authorization. Google
-          access tokens are used to make authorized requests to Google APIs during the user's
-          session.
+          The Tauri desktop app is a public OAuth client using Google's authorization-code flow
+          with PKCE, an exact loopback callback and state validation, and only
+          <code>openid</code>, <code>email</code>, <code>profile</code>, and
+          <code>drive.file</code>. It does not configure or bundle an OAuth client secret. Cloud
+          Run verifies Google ID tokens before accepting authenticated requests. Refresh tokens
+          are protected by macOS Keychain, Windows Credential Manager, or Linux Secret Service;
+          Drive access tokens are used only during authorized operations.
         </p>
         <p>
           Users should only sign in on devices they trust and should manage spreadsheet sharing
@@ -115,6 +154,7 @@
           maintainer through the
           <a href="https://github.com/aadish98/LabProjectManagementDashboard">GitHub repository</a>.
         </p>
+        <p>Use of the application is also subject to the <a href="../TERMS/">Terms of Service</a>.</p>
 
         <p class="fine-print">
           This policy is provided for the Lab Project Management Dashboard OAuth configuration and

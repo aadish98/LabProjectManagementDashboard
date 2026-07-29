@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default desktop capability for the main app window.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "oauth:allow-start",
+    "oauth:allow-cancel",
+    "updater:default",
+    "process:allow-restart",
+    "allow-open-drive-picker",
+    "allow-store-session-secret",
+    "allow-load-session-secret",
+    "allow-delete-session-secret",
+    "allow-verify-session-secret-vault"
+  ]
+}

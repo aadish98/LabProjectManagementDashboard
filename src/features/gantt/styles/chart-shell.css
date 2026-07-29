@@ -1,0 +1,114 @@
+/* ---------- Print region heading ---------- */
+
+.gantt-print-region {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.gantt-print-heading {
+  display: none;
+}
+
+/* ---------- Chart shell ---------- */
+
+.gantt-chart-card {
+  position: relative;
+  border: 1px solid var(--gantt-line);
+  border-radius: 12px;
+  background: var(--gantt-bg-canvas);
+  overflow: hidden;
+}
+
+.gantt-chart-card__legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 1.05rem;
+  border-bottom: 1px solid var(--gantt-line);
+  background: var(--gantt-bg-paper);
+}
+
+.gantt-legend-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.95rem;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gantt-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--gantt-mono-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gantt-ink-500);
+}
+
+.gantt-legend-swatch {
+  width: 22px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gantt-status-planned);
+}
+
+.gantt-legend-swatch--inProgress {
+  background: var(--gantt-status-progress);
+}
+
+.gantt-legend-swatch--completed {
+  background: var(--gantt-status-completed);
+}
+
+.gantt-legend-swatch--overdue {
+  background: var(--gantt-status-overdue);
+}
+
+.gantt-legend-swatch--planned {
+  background: var(--gantt-status-planned);
+}
+
+.gantt-chart-card__caption {
+  font-family: var(--gantt-mono-font);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gantt-ink-500);
+}
+
+.gantt-chart-card__caption strong {
+  color: var(--gantt-ink-100);
+  font-weight: 600;
+  margin-right: 0.45rem;
+}
+
+.gantt-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--gantt-bg-canvas);
+}
+
+.gantt-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.gantt-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gantt-scroll::-webkit-scrollbar-thumb {
+  background: #3a3934;
+  border-radius: 999px;
+  border: 2px solid var(--gantt-bg-canvas);
+}
+
+.gantt-scroll::-webkit-scrollbar-thumb:hover {
+  background: #45433d;
+}

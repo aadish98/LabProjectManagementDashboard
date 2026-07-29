@@ -6,27 +6,49 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
+    "build": "tauri build --config src-tauri/tauri.unsigned.conf.json",
+    "tauri": "tauri",
     "web:dev": "vite",
-    "frontend:build": "tsc && vite build",
+    "check:fonts": "node scripts/check-fonts.mjs",
+    "check:audit-structure": "node scripts/check-audit-structure.mjs",
+    "check:token-hygiene": "node scripts/check-token-hygiene.mjs",
+    "check:terminology": "node scripts/check-terminology.mjs",
+    "frontend:build": "npm run check:fonts && npm run check:terminology && tsc && vite build && npm run check:token-hygiene",
+    "pilot:inventory": "node scripts/pilot-migration-inventory.mjs",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:firestore-emulator": "node scripts/run-firestore-emulator.mjs",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build --config src-tauri/tauri.unsigned.conf.json",
+    "verify:release": "node scripts/verify-release.mjs"
   },
   "dependencies": {
+    "@fabianlars/tauri-plugin-oauth": "^2.0.0",
     "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-shell": "^2.3.5",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "pptxgenjs": "^4.0.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "axe-core": "^4.12.1",
+    "firebase-tools": "^15.23.0",
+    "jsdom": "^29.1.1",
+    "msw": "^2.15.0",
     "typescript": "^6.0.2",
-    "vite": "^8.0.8"
+    "vite": "^8.0.8",
+    "vitest": "^4.1.10"
   }
 }

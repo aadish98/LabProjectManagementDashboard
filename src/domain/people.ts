@@ -1,4 +1,33 @@
-import type { SheetRegistryEntry } from "./experiment";
+import type { DashboardDataset, SheetRegistryEntry } from "./experiment";
+
+/**
+ * Employee-owned profile metadata. Stored as key/value rows in the
+ * `Profile` tab at the end of each employee's task-log workbook. The
+ * task-log workbook is the source of truth; local caches are refresh
+ * optimizations only.
+ */
+export interface EmployeeProfile {
+  displayName: string;
+  /** Resized image data URL (WebP/PNG) or empty string for initials-only. */
+  profilePictureDataUrl: string;
+  /** ISO timestamp written when the profile was last saved. */
+  updatedAt: string;
+}
+
+/**
+ * Maximum stored profile picture size, in bytes of the raw data URL
+ * string. Roughly 32 KB after base64 encoding (so ~24 KB of binary).
+ * Beyond this, we refuse to write to the Sheet, because it bloats the
+ * cell, slows the dashboard sync, and risks hitting Google Sheets cell
+ * size limits.
+ */
+export const PROFILE_PICTURE_DATA_URL_BYTE_LIMIT = 32 * 1024;
+
+/** Target output dimensions for the resized avatar (square). */
+export const PROFILE_PICTURE_TARGET_PX = 160;
+
+/** Accepted image MIME types for upload. SVG is intentionally rejected. */
+export const PROFILE_PICTURE_ACCEPT = ["image/png", "image/jpeg", "image/webp"];
 
 export interface LabMemberProfile {
   labMember: string;
@@ -6,18 +35,28 @@ export interface LabMemberProfile {
   accentColor: string;
   accentSurface: string;
   accentBorder: string;
+  /**
+   * Optional avatar URL. Populated from the employee task-log `Profile`
+   * tab when available. When undefined, renderers fall back to
+   * deterministic initials/colors.
+   */
   profilePictureUrl?: string;
 }
 
+/**
+ * Muted per-member hues tuned for the dark theme: similar lightness and
+ * low chroma so members stay distinguishable without any one of them
+ * shouting. Surfaces and borders are translucent tints of the same hue.
+ */
 const MEMBER_ACCENTS = [
-  { color: "#38bdf8", surface: "rgba(56, 189, 248, 0.14)", border: "rgba(56, 189, 248, 0.44)" },
-  { color: "#a78bfa", surface: "rgba(167, 139, 250, 0.14)", border: "rgba(167, 139, 250, 0.44)" },
-  { color: "#f472b6", surface: "rgba(244, 114, 182, 0.14)", border: "rgba(244, 114, 182, 0.44)" },
-  { color: "#34d399", surface: "rgba(52, 211, 153, 0.14)", border: "rgba(52, 211, 153, 0.44)" },
-  { color: "#fbbf24", surface: "rgba(251, 191, 36, 0.14)", border: "rgba(251, 191, 36, 0.46)" },
-  { color: "#fb7185", surface: "rgba(251, 113, 133, 0.14)", border: "rgba(251, 113, 133, 0.44)" },
-  { color: "#2dd4bf", surface: "rgba(45, 212, 191, 0.14)", border: "rgba(45, 212, 191, 0.44)" },
-  { color: "#c084fc", surface: "rgba(192, 132, 252, 0.14)", border: "rgba(192, 132, 252, 0.44)" }
+  { color: "#9cb5a3", surface: "rgba(156, 181, 163, 0.12)", border: "rgba(156, 181, 163, 0.38)" },
+  { color: "#92a9c4", surface: "rgba(146, 169, 196, 0.12)", border: "rgba(146, 169, 196, 0.38)" },
+  { color: "#b3a0c8", surface: "rgba(179, 160, 200, 0.12)", border: "rgba(179, 160, 200, 0.38)" },
+  { color: "#c4a381", surface: "rgba(196, 163, 129, 0.12)", border: "rgba(196, 163, 129, 0.38)" },
+  { color: "#bcae7e", surface: "rgba(188, 174, 126, 0.12)", border: "rgba(188, 174, 126, 0.38)" },
+  { color: "#c295a1", surface: "rgba(194, 149, 161, 0.12)", border: "rgba(194, 149, 161, 0.38)" },
+  { color: "#8db3ae", surface: "rgba(141, 179, 174, 0.12)", border: "rgba(141, 179, 174, 0.38)" },
+  { color: "#bd9a8d", surface: "rgba(189, 154, 141, 0.12)", border: "rgba(189, 154, 141, 0.38)" }
 ];
 
 function hashString(value: string): number {
@@ -38,26 +77,45 @@ export function initialsForName(name: string): string {
 
 export function profileForLabMember(
   labMember: string,
-  registryEntry?: SheetRegistryEntry
+  _registryEntry?: SheetRegistryEntry,
+  profilePictureUrl?: string
 ): LabMemberProfile {
   const accent = MEMBER_ACCENTS[hashString(labMember) % MEMBER_ACCENTS.length];
-  return {
+  const profile: LabMemberProfile = {
     labMember,
     initials: initialsForName(labMember),
     accentColor: accent.color,
     accentSurface: accent.surface,
-    accentBorder: accent.border,
-    profilePictureUrl: registryEntry?.profilePictureUrl?.trim() || undefined
+    accentBorder: accent.border
   };
+  if (profilePictureUrl && profilePictureUrl.trim()) {
+    profile.profilePictureUrl = profilePictureUrl.trim();
+  }
+  return profile;
 }
 
 export function buildLabMemberProfiles(
   registry: SheetRegistryEntry[],
-  labMembers: string[]
+  labMembers: string[],
+  profilePicturesByLabMember?: Record<string, string | undefined>
 ): Record<string, LabMemberProfile> {
   const registryByMember = new Map(registry.map((entry) => [entry.labMember, entry]));
   return labMembers.reduce<Record<string, LabMemberProfile>>((profiles, labMember) => {
-    profiles[labMember] = profileForLabMember(labMember, registryByMember.get(labMember));
+    profiles[labMember] = profileForLabMember(
+      labMember,
+      registryByMember.get(labMember),
+      profilePicturesByLabMember?.[labMember]
+    );
     return profiles;
   }, {});
+}
+
+export function resolveManagerLabMember(
+  memberId: string,
+  dataset: DashboardDataset
+): { labMember: string; registryEntry: SheetRegistryEntry } | null {
+  const entry = dataset.registry.find(
+    (candidate) => candidate.memberId?.trim() === memberId.trim()
+  );
+  return entry ? { labMember: entry.labMember, registryEntry: entry } : null;
 }

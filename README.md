@@ -1,104 +1,215 @@
 # Lab Workflow Desktop
 
-This project turns the existing Google Apps Script workflow in `Code.gs` into a role-based desktop-ready application:
-
-- Employees get a submission-form GUI for creating and updating experiment records, plus Kanban and Gantt views of their task log.
-- Managers get Kanban, Gantt, compliance, feedback, and RunLog views across active lab members.
-- Google Sheets remains the source of truth, with the current Apps Script rules reused in the app.
-- The supported runtime target is a local desktop app on macOS and Windows.
-
-## What is included
-
-- `Code.gs`: the original Apps Script reference implementation, kept for parity reference.
-- `src/domain/`: typed workflow models and the compliance rules ported from Apps Script.
-- `src/services/googleSheets.ts`: live Google Sheets read/write plus local caching and overdue-resolution batch updates.
-- `src/services/cache.ts`: per-device `localStorage` for setup, session, dataset cache, manager snapshots, and last-run metadata.
-- `src/utils/date.ts`: timezone-aware date parser and formatter shared by the cards, Gantt, and edit modals.
-- `src/features/employee/`: employee submission workspace (Kanban + Gantt + create/edit/complete/resolve-overdue modals).
-- `src/features/manager/`: manager Kanban dashboard, employee rollups, change log, and add/fix-task flows.
-- `src/features/gantt/`: shared employee/manager Gantt chart, custom date-range controls, and PNG/print export.
-- `src-tauri/`: Tauri 2 packaging scaffold for macOS and Windows.
-- `presentations/`: standalone Node scripts (`build-manager-deck.cjs`, `build-scientist-deck.cjs`) that emit `.pptx` overviews via `pptxgenjs`. These are not bundled with the desktop app.
+Role-based Tauri desktop app for lab task logs. Employees create and update experiment records; managers get Kanban, Gantt, compliance, feedback, and RunLog views across the team. The supported production topology is the signed desktop app plus a Cloud Run API: the API verifies Google ID tokens, stores application records in Firestore, and handles Google Drive access tokens only for the duration of the requested operation. Google Sheets remains the user-controlled workflow data source.
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev
+cp .env.example .env   # fill in Google OAuth / Picker values
+npm run dev            # Tauri desktop shell (requires Rust)
 ```
 
-`npm run dev` launches the Tauri desktop app in development mode.
+The browser-hosted Vite build is not a supported product or authentication environment. Development and distribution must run through Tauri. The app hits real services; there is no mock data path.
 
-## Production setup
+## Security and data flow
 
-The app supports two sign-in roles, and they have completely independent setup paths.
+- Google sign-in requests only `openid`, `email`, `profile`, and per-file `drive.file`.
+- OAuth uses the fixed `127.0.0.1:53682` loopback callback, state, and PKCE S256 as a public Desktop client; no client secret is configured or bundled.
+- The desktop client sends the short-lived Google ID token to Cloud Run for server-side audience, issuer, signature, and expiry verification.
+- Cloud Run stores application records and account metadata in Firestore. It does not persist Google Drive access or refresh tokens.
+- Drive access tokens are processed in memory only while servicing a Sheets/Picker operation and are then discarded.
+- Desktop refresh tokens are stored in the operating system credential vault (macOS Keychain, Windows Credential Manager, or Linux Secret Service), never in `localStorage`.
+- Non-secret device preferences and caches may remain in the Tauri WebView's local storage.
 
-### Manager setup
+## Access model
 
-1. Create one shared Google OAuth client ID (Web application type) for the desktop app.
-2. In `.env` (or the in-app Setup screen) set:
-   - `VITE_GOOGLE_CLIENT_ID`
-   - `VITE_ADMIN_SPREADSHEET_ID` — the admin workbook only managers can read.
-   - `VITE_MANAGER_EMAILS` — comma-separated list of emails that should be treated as managers.
-   - `VITE_EMPLOYEE_EMAILS` — comma-separated list of emails that should be treated as employees.
-3. Ensure the admin spreadsheet contains:
-   - `SheetRegistry`
-   - `RunLog`
-   - `Feedback`
-4. Optionally add a `Roles` sheet with columns `Email`, `Role`, `Lab Member`.
+Firestore is authoritative for labs, memberships, roles, invitations, onboarding state, stable IDs, workbook IDs, tabs, and shared column maps. The app never infers a role from Google Sheets readability or from a missing permission.
 
-When a manager signs in, the app loads the admin sheet and every per-employee task log it references.
+- Active Firestore membership determines employee, manager, and PI capabilities.
+- A pending invitation can route only the matching verified Google email into onboarding.
+- An account with neither membership nor invitation is unauthorized.
+- The only bootstrap path is a short-lived backend claim after the founding account proves it can read an intentionally empty canonical `Roles` sheet.
 
-### Lab member (employee) setup
+Google Drive access is a separate data-access gate. Managers provision exact-file sharing through the backend; each invited account must then select its exact configured file through Picker because `drive.file` grants are account- and file-specific.
 
-Lab members do **not** need access to the admin spreadsheet. They only need:
+## Onboarding checklist
 
-1. To sign in with the same shared Google OAuth client ID.
-2. Read/write access to their own task-log spreadsheet (the manager keeps this sheet's URL in `SheetRegistry`, and shares it with the lab member directly in Drive).
-3. To be listed in `VITE_EMPLOYEE_EMAILS` or in the locally overridden employee allow-list.
-4. To enter their task-log spreadsheet URL and active tab name in the employee setup screen on first use. The app remembers those preferences locally per device and email.
+1. Create a Google Cloud project; enable **Google Sheets API**, **Google Drive API**, and **Google Picker API**. The backend uses Drive only with the signed-in operator's delegated token when provisioning exact-file access.
+2. Configure OAuth consent with scopes: `openid`, `email`, `profile`, `drive.file`.
+3. Create a **Desktop app** OAuth client. Add `http://127.0.0.1:53682` under **Authorized redirect URIs**.
+4. Create a browser API key for Picker; restrict it to your app origins and the Picker API.
+5. Copy `.env.example` → `.env` and set:
+   - `VITE_BACKEND_BASE_URL` (HTTPS Cloud Run service URL)
+   - `VITE_GOOGLE_CLIENT_ID` (public Desktop app OAuth client; no bundled client secret)
+   - `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID` (Cloud project number)
+   - `VITE_ADMIN_SPREADSHEET_ID` (manager-only; URL or ID)
+6. Create the canonical admin workbook and empty `Roles` sheet; share it with the founding operator.
+7. Sign in through Tauri and create/claim the short-lived bootstrap claim.
+8. In Team setup, create invitations with explicit roles, exact workbook ID, tab, and proposed column map.
+9. Have the invited account accept the invitation.
+10. A Firestore-authorized manager/PI provisions the exact required Drive files.
+11. The invited account selects the exact configured workbook in Picker.
+12. The invited account reviews and accepts the shared column map; onboarding becomes `ready`.
 
-When a lab member signs in, the app loads only their own task log. The admin sheet is never touched.
+The enforced lifecycle is `invited → needsSharing → needsPicker → needsColumnReview → ready`. `blocked` preserves the prior state and a specific recovery action. See [docs/PILOT_MIGRATION_RUNBOOK.md](docs/PILOT_MIGRATION_RUNBOOK.md) before piloting existing lab data.
+
+For a non-mutating legacy inventory, run `npm run pilot:inventory -- /path/to/redacted-export.json --pretty`. The sample fixture and test live in `scripts/`; output is versioned machine-readable evidence and never calls Sheets, Drive, or Firestore.
+
+## Manager setup
+
+Bootstrap configuration lives in `.env`; membership and onboarding records live in Firestore. Team setup writes revisioned Firestore records first. Compatibility rows in `SheetRegistry`/`Roles` use immutable member IDs and backend revisions, and are not authorization inputs.
+
+Manager dashboards load available task logs independently. A failed, stale-tab, or missing-Picker workbook produces a member-specific issue while successfully loaded members remain visible; the last-known cache can fill failed members and is visibly marked stale.
+
+Use **Manager view** for the employee overview (metrics, rollups, change log) or **Personal tasks** for your own bench work when the same email also has an Employee role linked to a task log. Personal tasks reuses the employee Kanban/Gantt workflow (create, complete, resolve overdue) without signing out.
+
+### Manager who also runs experiments
+
+Assign both roles to the same Firestore member ID and configure that member's task log. The same signed-in account can then use Personal tasks and Manager view.
+
+### PI setup
+
+Assign the PI capability in Firestore. A PI may also have Manager and Employee capabilities on the same immutable member record.
+
+## Employee setup
+
+Lab members need:
+
+1. A pending backend invitation matching their verified Google email.
+2. Manager-provisioned Drive access to the exact configured task-log spreadsheet.
+3. Per-account Picker proof for that exact spreadsheet.
+4. Review and acceptance of the proposed shared column map.
+
+Accepted column maps are shared in Firestore and keyed by stable member/workbook IDs. Device caches improve startup but are not authoritative.
+
+## Compatibility workbook structure
+
+Fixed tab names: `SheetRegistry`, `Roles`, `RunLog`, `Feedback`.
+
+`SheetRegistry` and `Roles` are compatibility mirrors for Sheets workflows. They are not role or onboarding authority. Firestore records carry immutable UUIDs and revisions; compatibility rows carry the corresponding `memberId` and `revision` so updates can target one member safely.
+
+### SheetRegistry
+
+Headers normalize to lowercase alphanumeric (`Lab Member` → `labmember`). Each **active** row needs:
+
+| Column | Content |
+|--------|---------|
+| `memberid` | Stable Firestore member ID |
+| `labmember` | Display name |
+| `tasklogurl` | Employee task-log URL or spreadsheet ID |
+| `activesheet` | Tab name inside that workbook |
+| `active` | `true`, `yes`, `y`, or `1` (case-insensitive) |
+| `revision` | Last mirrored authoritative revision |
+
+Bad rows surface as callouts in the manager dashboard rather than failing silently.
+
+### Roles compatibility mirror
+
+| Column | Content |
+|--------|---------|
+| `memberid` | Stable Firestore member ID |
+| `email` | Google account email |
+| `role` | `employee`, `manager`, or `pi` |
+| `labmember` | Optional display name — links the role row to a `SheetRegistry` task-log row |
+| `active` | Compatibility active flag |
+| `revision` | Last mirrored authoritative revision |
+
+The same member ID may have multiple role rows. Runtime authorization always comes from the active Firestore membership.
+
+### RunLog / Feedback (optional)
+
+- **RunLog** columns: `timestamp`, `labmember`, `tasklogurl`, `status`, `note`
+- **Feedback** column A = lab member; columns B+ = timestamped feedback runs
+
+## Task-log sheets
+
+Row 1 must be a header row. Expected fields (aliases in parentheses):
+
+`Project`, `Experiment`, `Time Estimate`, `Start Date`, `Projected End Date` (`End Date`), `Status`, `Schematic` (`Analysis Pipeline Schema`), `Result`, `Link to Data`, `Comments/ Improvements`, `Notebook Location`
+
+**Column mapping:** Managers propose a shared map during invitation/setup; the member reviews and accepts it. Task writes update only mapped cells that changed.
+
+**Safe writes:** Existing tasks carry stable `Task ID` and `Task Revision` metadata. The app adds/backfills those columns for populated legacy rows, then re-finds the task by ID and verifies the expected revision immediately before updating only changed mapped cells. The revision is incremented in the same `values.batchUpdate`. Google Sheets has no compare-and-swap precondition, so a second writer can still change the row between the final verification read and the batch commit. Admin compatibility updates separately preflight member ID/revision and write only the selected member's registry/role ranges.
+
+**Dates** (`src/utils/date.ts`): `YYYY-MM-DD`, `M/D`, `M/D/YYYY`, serial numbers, and common string formats. Interpreted as calendar days in the user's local timezone. Unparseable dates flag cards and land in the Gantt repair queue.
+
+**Status:** `Planned`, `In Progress`, `Ongoing`, `Complete`/`Completed`/`Done`, `Blocked`, or values containing `block`/`hold`.
+
+**Compliance:** Active tasks need project, experiment, time estimate, parseable dates, status, schematic, and link to data. Completed tasks need result and link to data. Overdue = past projected end date by more than 24 hours without completion.
+
+**Overdue resolution:** Appends new dates/estimates with strikethrough history; records delay reason in comments. Use the dedicated **Resolve overdue** modal to preserve history — regular edit overwrites multi-line date cells.
+
+**Profile photos:** Stored in a `Profile` tab at the right end of each employee's task log (160×160 WebP/JPEG/PNG, ≤32 KB). Managers read them on refresh; failures fall back to initials.
 
 ## Gantt view
 
-Employees and managers can switch from Kanban to Gantt. The Gantt view defaults to the current quarter and lets users choose any start and end date to inspect an arbitrary date range. Managers can select all or any subset of employees independently of the Kanban employee tabs. The chart can be downloaded as PNG or printed/saved as PDF through the system print dialog.
+Available to all task roles. Defaults to the current quarter; any date range can be selected. Managers and PIs can filter people independently of Kanban tabs. Export: PNG download or print/save as PDF. Tasks with invalid dates appear in a repair queue with **Fix task**.
 
-Tasks with non-standard or unparseable dates are flagged on cards and collected in a Gantt repair queue outside the positioned timeline so date problems are visible instead of silently treated as valid schedule data. Those exception cards include a Fix task action that opens the edit flow for the affected task.
+## Installing (end users)
 
-The UI uses a calm, task-first visual system centered on Avenir Next, with IBM Plex Sans used for compact labels and controls. Required or non-compliant edit fields are highlighted next to the affected inputs rather than hidden in a separate compliance preview box.
+Hand out the first installer from approved lab storage or published GitHub Release assets. In-app updates work only after the updater public key, signing secrets, matching `app-v*` release, and published `latest.json` are in place.
 
-The app uses the live Google Sheets workflow only. There is no bundled mock/demo data path.
-The `Roles` sheet is parsed when present but is not currently consulted for access control; role resolution comes from the configured manager and employee allow-lists in `src/auth/roles.ts`.
+- **macOS (`.dmg`):** open the disk image and drag the app to Applications. If Gatekeeper blocks an unsigned build, right-click the app → **Open** → **Open**, or use **System Settings → Privacy & Security → Open Anyway**.
+- **Windows (NSIS `.exe`):** run the installer (per-user; no admin/UAC). If SmartScreen appears, choose **More info → Run anyway**.
+- **Updates:** a properly configured release checks on launch and prompts to install and restart when a newer published GitHub Release is available. In-place update bundles are minisign-verified. Builds made with `src-tauri/tauri.unsigned.conf.json` do not create updater artifacts, and operating-system trust prompts still depend on the signing/notarization status of each release.
 
-## Date handling
+Operator setup for updater signing keys and CI secrets is in [DISTRIBUTION_SETUP.md](DISTRIBUTION_SETUP.md) §4.
 
-Dates are read from Sheets as formatted strings and parsed by `src/utils/date.ts`. The parser accepts:
+## Development and deployment
 
-- `YYYY-MM-DD` (the format `<input type="date">` writes back).
-- `M/D`, `M.D` (current calendar year is assumed).
-- `M/D/YYYY`, `M-D-YYYY`, `M.D.YYYY` (two-digit years are normalized to `20YY`).
-- Spreadsheet serial date numbers.
-- A `new Date(text)` fallback for things like ISO timestamps or `Apr 24, 2026`.
+| Command | Output | Use when |
+|---------|--------|----------|
+| `npm run dev` | Tauri + Vite | Supported local desktop development |
+| `npm run typecheck` | Type errors only | Pre-commit / CI |
+| `npm run frontend:build` | `dist/` static bundle | Internal Tauri build input only |
+| `npm run build` | `.dmg` / NSIS `.exe` installers | Native distribution |
+| `npm run verify:release` | Local release checks + JSON evidence | Required local release gate |
 
-All accepted formats are interpreted as a calendar day in the user's local timezone, so submitting a task on April 24 will display April 24 after refresh regardless of the user's locale. Unparseable values are surfaced as "Invalid format" on the affected cards and routed to the Gantt repair queue.
+**Tauri desktop only:** requires Rust and platform build tools (Xcode CLT on macOS, VS Build Tools on Windows). Code signing/notarization is required for trusted production installs. OAuth uses the system browser and a fixed loopback redirect; verify it in each signed installer.
 
-For full setup, access, spreadsheet, and compliance requirements, see `GUI_ACCESS_REQUIREMENTS.md`.
+`npm run verify:release -- --package` adds a current-host Tauri package. Optional `--emulator`, `--vault`, and `--live-smoke` checks run only when requested and fail closed if their prerequisites are absent. The vault option requires `VAULT_VERIFY_BINARY` pointing to the exact packaged/debug executable; it performs one disposable real OS-vault store/load/delete round trip without exposing the value. See [docs/TESTING.md](docs/TESTING.md).
 
-## Desktop packaging
+**Presentations:** `presentations/` is a separate Node project that generates `.pptx` onboarding decks; not bundled with the app.
 
-The repo includes a Tauri 2 desktop shell and scripts:
+## Repository layout
 
-```bash
-npm run dev
-npm run build
-```
+| Path | Purpose |
+|------|---------|
+| `backend/` | Cloud Run API and Firestore persistence |
+| `src/app/` | Root router, session/access/sync controllers, and screens |
+| `src/domain/` | Workflow models, access rules, onboarding lifecycle, and compliance rules |
+| `src/platform/` | Desktop auth, Picker, credential-vault, and updater boundaries |
+| `src/services/sheets/` | Sheets client, typed errors, admin, task-log, dataset, and profile modules |
+| `src/services/googleSheets.ts` | Thin compatibility façade re-exporting `src/services/sheets/` |
+| `src/services/onboardingApi.ts` | Typed Cloud Run onboarding/invitation client |
+| `src/features/onboarding/` | Clean-device employee/manager connect and column-review flows |
+| `src/features/setup/` | Team setup orchestrator, member editor, and persistence hooks |
+| `src/features/tasks/` | Shared task form and dialog primitives |
+| `src/features/employee/` | Employee Kanban + Gantt workspace |
+| `src/features/manager/` | Manager dashboard, rollups, change log |
+| `src/features/gantt/` | Shared Gantt chart, schedule table, and export |
+| `src/components/ui/` | Accessible dialog, banner, form-field, and status primitives |
+| `src-tauri/` | Tauri 2 desktop packaging |
+| `Code.gs` | Original Apps Script reference |
+| `docs/PRIVACY/` | Public privacy policy (also at `docs/index.html`) |
+| `docs/ARCHITECTURE.md` | Authority, identities, data flow, and constraints |
+| `docs/TESTING.md` | Local, emulator, build, and dry-run verification |
+| `docs/PILOT_MIGRATION_RUNBOOK.md` | Reversible pilot migration procedure |
 
-Internally, Tauri uses the React/Vite frontend build, but the intended way to run the project is through the desktop commands above.
+## Local storage
 
-Before those commands will work locally, install the Rust toolchain and platform-native build prerequisites:
+Per-device `localStorage` keys (see `src/services/cache.ts`) contain app config, non-secret session identity, dataset cache, employee prefs, manager tab order, change snapshots, and profile cache. Refresh tokens live in the OS credential vault; access and ID tokens are not written to local storage. A one-time migration moves legacy refresh tokens out of the old session record. A new device starts fresh; `.env` provides first-run defaults.
 
-- macOS: Xcode Command Line Tools + Rust
-- Windows: Visual Studio Build Tools + Rust
+## Remaining platform constraints
 
-Code signing and notarization still require your own platform certificates and secrets. The packaging scaffold is ready, but signing cannot be completed automatically without those credentials.
+- Picker authorization is per Google account and exact file; sharing alone does not create a `drive.file` grant.
+- Google Sheets and Firestore cannot participate in one transaction. Firestore remains authoritative; compatibility mirror failures must stay visible and retryable.
+- Task ID plus Task Revision verification detects moved rows and revisions that changed before the final read. Duplicate, missing, or corrupted metadata requires repair, and Google Sheets still has an unavoidable race between that read and the subsequent batch commit.
+- Manager loads are intentionally partial. Cached rows for failed members are marked stale and must not be mistaken for a successful refresh.
+- Sheets values are formatted strings; ambiguous or invalid dates still require user correction.
+- OAuth, Keychain/Credential Manager/Secret Service, signing, and notarization require real packaged-app verification on each target OS.
+
+## Privacy
+
+See [docs/PRIVACY/README.md](docs/PRIVACY/README.md) and [docs/TERMS/README.md](docs/TERMS/README.md). Firestore records are retained while the account/lab uses the service. The current app supports deactivation/revocation but requires an approved operator procedure for hard deletion. Google Drive tokens are transient and are not retained by Cloud Run or Firestore.

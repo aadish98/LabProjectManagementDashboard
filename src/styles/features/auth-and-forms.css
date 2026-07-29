@@ -1,0 +1,352 @@
+/* ---------- Sign-in & setup cards ---------- */
+
+.signin-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.signin-card {
+  width: min(440px, 100%);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.signin-card h1 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.signin-card p {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.setup-card {
+  width: min(640px, 100%);
+}
+
+.setup-card--wide {
+  width: min(760px, 100%);
+}
+
+.setup-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-family: var(--font-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.setup-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.setup-step + .setup-step::before {
+  content: "";
+  display: block;
+  width: 2.25rem;
+  height: 1px;
+  background: var(--line-strong);
+  margin: 0 0.75rem;
+}
+
+.setup-step__index {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-3);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+}
+
+.setup-step__label {
+  letter-spacing: 0.07em;
+}
+
+.setup-step--current {
+  color: var(--text-1);
+}
+
+.setup-step--current .setup-step__index {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.setup-step--done {
+  color: var(--accent);
+}
+
+.setup-step--done .setup-step__index {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* ---------- Panels ---------- */
+
+.panel {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+}
+
+.panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel__header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+/* ---------- Banners & callouts ---------- */
+
+.banner {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.1rem;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.banner--error {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.banner--info {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--text-2);
+}
+
+.banner--success,
+.callout--success {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+
+.callout {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.25rem;
+  background: var(--surface-2);
+}
+
+.callout--warning {
+  background: var(--warn-soft);
+  border-color: var(--warn-border);
+}
+
+/* ---------- Forms ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.field span {
+  font-family: var(--font-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-height: var(--control-hit-size);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  padding: 0.55rem 0.8rem;
+  background: var(--surface-2);
+  color: var(--text-1);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--text-3);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--accent-border);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.field--attention > span {
+  color: var(--warn);
+}
+
+.field--attention input,
+.field--attention select,
+.field--attention textarea {
+  border-color: var(--warn-border);
+  background: var(--warn-soft);
+}
+
+.field__hint {
+  color: var(--warn);
+  font-size: 0.78rem;
+  font-style: normal;
+  line-height: 1.4;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.field--wide {
+  grid-column: 1 / -1;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent-strong);
+}
+
+/* ---------- Source cards ---------- */
+
+.source-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.source-card--empty {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: transparent;
+}
+
+.source-card--needs {
+  border-color: var(--warn-border);
+}
+
+.source-card--selected {
+  border-color: var(--accent-border);
+  padding-left: 1.45rem;
+}
+
+.source-card--selected::before {
+  content: "";
+  position: absolute;
+  inset: 0.95rem auto 0.95rem 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.source-card__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.source-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 220px;
+}
+
+.source-card__eyebrow {
+  margin: 0;
+  font-family: var(--font-secondary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.source-card--selected .source-card__eyebrow {
+  color: var(--accent);
+}
+
+.source-card--needs .source-card__eyebrow {
+  color: var(--warn);
+}
+
+.source-card__title {
+  margin: 0;
+  font-family: var(--font-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-1);
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.source-card--empty .source-card__title {
+  color: var(--text-2);
+}
+
+.source-card__detail {
+  margin: 0;
+  font-family: var(--font-secondary);
+  font-size: 0.82rem;
+  color: var(--text-2);
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.source-card__action {
+  flex: 0 0 auto;
+}
+
+.source-card__field {
+  margin: 0;
+}

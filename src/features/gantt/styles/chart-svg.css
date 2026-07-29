@@ -1,0 +1,227 @@
+/* ---------- SVG chart styling ---------- */
+
+.gantt-chart {
+  display: block;
+  font-family: var(--gantt-body-font);
+  background: transparent;
+}
+
+.gantt-chart__surface {
+  fill: var(--gantt-bg-canvas);
+}
+
+.gantt-chart__pane-divider {
+  stroke: var(--gantt-line-strong);
+  stroke-width: 1;
+}
+
+.gantt-chart__pane-shadow {
+  fill: url(#gantt-pane-shadow);
+}
+
+.gantt-chart__week-line {
+  stroke: var(--gantt-line-soft);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.gantt-chart__month-line {
+  stroke: var(--gantt-line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.gantt-chart__weekend-band {
+  fill: rgba(232, 230, 225, 0.025);
+}
+
+.gantt-chart__header-bg {
+  fill: #242320;
+}
+
+.gantt-chart__header-divider {
+  stroke: var(--gantt-line);
+  stroke-width: 1;
+}
+
+.gantt-chart__axis-eyebrow {
+  fill: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gantt-chart__month-label {
+  fill: var(--gantt-ink-100);
+  font-family: var(--gantt-display-font);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.gantt-chart__week-label {
+  fill: var(--gantt-ink-700);
+  font-family: var(--gantt-mono-font);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.gantt-chart__year-tag {
+  fill: var(--gantt-ink-700);
+  font-family: var(--gantt-mono-font);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gantt-chart__group-band {
+  fill: rgba(232, 230, 225, 0.03);
+}
+
+.gantt-chart__group-rule {
+  stroke: var(--gantt-line);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  shape-rendering: crispEdges;
+}
+
+.gantt-chart__group-accent {
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+.gantt-chart__group-label {
+  fill: var(--gantt-ink-100);
+  font-family: var(--gantt-body-font);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+.gantt-chart__group-count {
+  fill: var(--gantt-ink-700);
+  font-family: var(--gantt-mono-font);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.gantt-chart__row-divider {
+  stroke: var(--gantt-line-soft);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.gantt-chart__row-band {
+  fill: transparent;
+  transition: fill 150ms ease;
+}
+
+.gantt-chart__row:hover .gantt-chart__row-band {
+  fill: rgba(157, 184, 166, 0.05);
+}
+
+.gantt-chart__row:hover .gantt-bar {
+  filter: none;
+}
+
+.gantt-chart__row-status-dot {
+  stroke: var(--gantt-bg-canvas);
+  stroke-width: 1.5;
+}
+
+.gantt-chart__row-status-dot--planned {
+  fill: var(--gantt-status-planned);
+}
+.gantt-chart__row-status-dot--inProgress {
+  fill: var(--gantt-status-progress);
+}
+.gantt-chart__row-status-dot--overdue {
+  fill: var(--gantt-status-overdue);
+}
+.gantt-chart__row-status-dot--completed {
+  fill: var(--gantt-status-completed);
+}
+
+.gantt-chart__task-title {
+  fill: var(--gantt-ink-100);
+  font-family: var(--gantt-body-font);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.gantt-chart__task-meta {
+  fill: var(--gantt-ink-500);
+  font-family: var(--gantt-mono-font);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.gantt-chart__bar-label {
+  fill: rgba(25, 25, 23, 0.92);
+  font-family: var(--gantt-mono-font);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.gantt-chart__bar-track {
+  fill: rgba(232, 230, 225, 0.04);
+}
+
+.gantt-bar {
+  stroke-width: 0;
+}
+
+.gantt-bar__highlight {
+  fill: rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+
+.gantt-bar__edge {
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.gantt-bar__edge--planned {
+  stroke: rgba(133, 131, 123, 0.8);
+}
+.gantt-bar__edge--inProgress {
+  stroke: rgba(148, 179, 161, 0.85);
+}
+.gantt-bar__edge--overdue {
+  stroke: rgba(192, 133, 121, 0.85);
+}
+.gantt-bar__edge--completed {
+  stroke: rgba(102, 127, 112, 0.85);
+}
+
+.gantt-bar--open {
+  mask: url(#gantt-open-mask);
+}
+
+.gantt-chart__today-line {
+  stroke: var(--gantt-amber);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 4;
+}
+
+.gantt-chart__today-flag {
+  fill: var(--gantt-amber);
+}
+
+.gantt-chart__today-text {
+  fill: #221c10;
+  font-family: var(--gantt-mono-font);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

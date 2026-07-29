@@ -9,13 +9,27 @@
     "beforeBuildCommand": "npm run frontend:build",
     "frontendDist": "../dist"
   },
+  "plugins": {
+    "oauth": "<html><body style=\"font-family:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;padding:48px;text-align:center;\"><h1>Sign-in complete</h1><p>You can close this tab and return to Lab Workflow Desktop.</p></body></html>",
+    "updater": {
+      "endpoints": [
+        "https://github.com/aadish98/LabProjectManagementDashboard/releases/latest/download/latest.json"
+      ],
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "app": {
     "windows": [
       {
         "title": "Lab Workflow Desktop",
         "width": 1440,
         "height": 960,
-        "resizable": true
+        "resizable": true,
+        "theme": "Dark",
+        "backgroundColor": "#191917"
       }
     ],
     "security": {
@@ -24,7 +38,8 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "msi"],
+    "targets": ["app", "dmg", "nsis"],
+    "createUpdaterArtifacts": true,
     "category": "Productivity",
     "shortDescription": "Employee submission forms and manager dashboards for the lab workflow.",
     "icon": [
@@ -33,6 +48,11 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   }
 }
