@@ -15,7 +15,7 @@
       "endpoints": [
         "https://github.com/aadish98/LabProjectManagementDashboard/releases/latest/download/latest.json"
       ],
-      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGMDE0NkQxNjBDNjY0ODQKUldTRVpNWmcwVVlCSHlsK3R3Z29oaHZBU00rZEhZRzBKR0VPYVdXdzVKVlpCQkVOVmdNektkYnEK",
       "windows": {
         "installMode": "passive"
       }
