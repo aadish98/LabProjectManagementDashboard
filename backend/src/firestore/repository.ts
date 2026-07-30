@@ -1,5 +1,4 @@
 import type {
-  BootstrapClaim,
   DriveProvisioningContext,
   Identity,
   Invitation,
@@ -20,17 +19,6 @@ export interface Versioned<T> {
 }
 
 export interface OnboardingRepository {
-  createBootstrapClaim(
-    identity: Identity,
-    input: { labName: string; adminSpreadsheetId: string; ttlSeconds: number },
-    idempotencyKey: string
-  ): Promise<Versioned<BootstrapClaim>>;
-  claimLab(
-    identity: Identity,
-    claimId: string,
-    idempotencyKey: string
-  ): Promise<Versioned<{ lab: Lab; member: Member }>>;
-
   listInvitationsForEmail(email: string): Promise<Invitation[]>;
   listInvitations(labId: string): Promise<Invitation[]>;
   getInvitation(labId: string, invitationId: string): Promise<Invitation>;

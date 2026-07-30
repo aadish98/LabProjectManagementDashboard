@@ -38,7 +38,6 @@ function member(roles: Member["roles"]): Member {
 function appWith(
   repositoryOverrides: Partial<OnboardingRepository> = {},
   readinessCheck: () => Promise<void> = async () => {},
-  emptyRolesVerifier = { verify: vi.fn() },
   drivePermissionClient = {
     createUserPermission: vi.fn(),
     deletePermission: vi.fn()
@@ -59,17 +58,15 @@ function appWith(
         return identity;
       })
     },
-    emptyRolesVerifier,
     drivePermissionClient,
     corsAllowedOrigins: ["tauri://localhost"],
-    bootstrapClaimTtlSeconds: 600,
     readinessCheck
   });
 }
 
 describe("HTTP API", () => {
   it("serves health without authentication", async () => {
-    const response = await request(appWith()).get("/healthz");
+    const response = await request(appWith()).get("/health");
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ status: "ok", check: "process" });
     expect(response.headers["cache-control"]).toBe("no-store");
@@ -105,7 +102,7 @@ describe("HTTP API", () => {
 
   it("returns stable client errors for malformed and oversized JSON", async () => {
     const malformed = await request(appWith())
-      .post("/v1/labs/bootstrap")
+      .post("/v1/me/invitations")
       .set("Authorization", "Bearer valid-id-token")
       .set("Content-Type", "application/json")
       .send('{"labName":');
@@ -113,7 +110,7 @@ describe("HTTP API", () => {
     expect(malformed.body.error.code).toBe("INVALID_JSON");
 
     const oversized = await request(appWith())
-      .post("/v1/labs/bootstrap")
+      .post("/v1/me/invitations")
       .set("Authorization", "Bearer valid-id-token")
       .send({ payload: "x".repeat(257 * 1024) });
     expect(oversized.status).toBe(413);
@@ -149,7 +146,20 @@ describe("HTTP API", () => {
       .get("/v1/me/memberships")
       .set("Authorization", "Bearer valid-id-token");
     expect(response.status).toBe(200);
-    expect(response.body.memberships).toEqual([membership]);
+    expect(response.body.memberships).toEqual([
+      {
+        ...membership,
+        lab: {
+          id: membership.lab.id,
+          name: membership.lab.name,
+          revision: membership.lab.revision,
+          createdAt: membership.lab.createdAt,
+          createdBy: membership.lab.createdBy,
+          updatedAt: membership.lab.updatedAt
+        }
+      }
+    ]);
+    expect(response.body.memberships[0].lab).not.toHaveProperty("adminSpreadsheetId");
     expect(listMembershipsForEmail).toHaveBeenCalledWith(identity.email);
   });
 
@@ -161,82 +171,13 @@ describe("HTTP API", () => {
     expect(response.body.error.code).toBe("MANAGER_ROLE_REQUIRED");
   });
 
-  it("requires the delegated Drive token in a separate header", async () => {
+  it("does not expose the retired desktop bootstrap endpoint", async () => {
     const response = await request(appWith())
       .post("/v1/labs/bootstrap")
       .set("Authorization", "Bearer valid-id-token")
-      .set("Idempotency-Key", "5f5a1356-1c29-46f2-9d90-0dc211fc5f89")
-      .send({
-        labName: "Example Lab",
-        adminSpreadsheetId: "admin-spreadsheet-id"
-      });
-    expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("DRIVE_ACCESS_TOKEN_REQUIRED");
-  });
-
-  it("creates a bootstrap claim only after exact empty-Roles verification", async () => {
-    const claim = {
-      id: "8949185d-7480-4baf-bba7-acde5f634e37",
-      ownerSubject: identity.subject,
-      ownerEmail: identity.email,
-      ownerName: identity.name!,
-      labName: "Example Lab",
-      adminSpreadsheetId: "admin-spreadsheet-id",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      expiresAt: "2026-01-01T00:10:00.000Z"
-    };
-    const createBootstrapClaim = vi.fn().mockResolvedValue({
-      value: claim,
-      replayed: false
-    });
-    const verifier = { verify: vi.fn().mockResolvedValue(undefined) };
-    const response = await request(
-      appWith({ createBootstrapClaim }, async () => {}, verifier)
-    )
-      .post("/v1/labs/bootstrap")
-      .set("Authorization", "Bearer valid-id-token")
-      .set("X-Google-Drive-Access-Token", "drive-token")
-      .set("Idempotency-Key", "5f5a1356-1c29-46f2-9d90-0dc211fc5f89")
-      .send({
-        labName: "Example Lab",
-        adminSpreadsheetId: "admin-spreadsheet-id"
-      });
-
-    expect(response.status).toBe(201);
-    expect(verifier.verify).toHaveBeenCalledWith(
-      "drive-token",
-      "admin-spreadsheet-id"
-    );
-    expect(createBootstrapClaim).toHaveBeenCalledOnce();
-  });
-
-  it("does not create a claim when the Roles sheet is malformed", async () => {
-    const createBootstrapClaim = vi.fn();
-    const verifier = {
-      verify: vi.fn().mockRejectedValue(
-        new ApiError({
-          status: 409,
-          code: "ROLES_SHEET_NOT_CANONICAL",
-          message: "The Roles sheet is malformed.",
-          action: "Repair the canonical headers."
-        })
-      )
-    };
-    const response = await request(
-      appWith({ createBootstrapClaim }, async () => {}, verifier)
-    )
-      .post("/v1/labs/bootstrap")
-      .set("Authorization", "Bearer valid-id-token")
-      .set("X-Google-Drive-Access-Token", "drive-token")
-      .set("Idempotency-Key", "5f5a1356-1c29-46f2-9d90-0dc211fc5f89")
-      .send({
-        labName: "Example Lab",
-        adminSpreadsheetId: "admin-spreadsheet-id"
-      });
-
-    expect(response.status).toBe(409);
-    expect(response.body.error.code).toBe("ROLES_SHEET_NOT_CANONICAL");
-    expect(createBootstrapClaim).not.toHaveBeenCalled();
+      .send({});
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("ROUTE_NOT_FOUND");
   });
 
   it("accepts exact manager file subsets and returns retained progress", async () => {
@@ -249,10 +190,9 @@ describe("HTTP API", () => {
     };
     const progress = {
       requiredFiles: [
-        { fileId: "admin", purpose: "adminWorkbook", label: "Admin workbook" },
         { fileId: "task", purpose: "requiredTaskLog", label: "Member Task-log workbook" }
       ],
-      verifiedFileIds: ["admin"],
+      verifiedFileIds: [],
       remainingFileIds: ["task"],
       complete: false,
       requiresColumnReview: false
@@ -266,7 +206,7 @@ describe("HTTP API", () => {
     )
       .post(`/v1/labs/${manager.labId}/members/${manager.id}/manager-file-proof`)
       .set("Authorization", "Bearer valid-id-token")
-      .send({ expectedRevision: 1, selectedFileIds: ["admin"] });
+      .send({ expectedRevision: 1, selectedFileIds: ["task"] });
 
     expect(response.status).toBe(200);
     expect(response.body.progress).toEqual(progress);
@@ -274,7 +214,7 @@ describe("HTTP API", () => {
       manager.labId,
       manager.id,
       identity,
-      ["admin"],
+      ["task"],
       1
     );
   });
@@ -302,7 +242,6 @@ describe("HTTP API", () => {
           })
         },
         async () => {},
-        { verify: vi.fn() },
         drive
       )
     )
@@ -350,7 +289,6 @@ describe("HTTP API", () => {
           recordDriveSharing: vi.fn().mockRejectedValue(repositoryFailure)
         },
         async () => {},
-        { verify: vi.fn() },
         drive
       )
     )

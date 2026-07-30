@@ -13,16 +13,8 @@ export const ADMIN_TAB_NAMES = {
 
 export type AdminTabName = (typeof ADMIN_TAB_NAMES)[keyof typeof ADMIN_TAB_NAMES];
 
-/**
- * Bootstrap config that has to live on the device because the app needs it
- * before it can authenticate with Google or read the admin workbook.
- *
- * Access roles and onboarding state are loaded from the verified backend.
- * The spreadsheet ID is retained for canonical workflow data and the
- * narrowly verified first-lab bootstrap claim.
- */
+/** Non-secret device connection configuration for Google APIs. */
 export interface AppConfig {
-  adminSpreadsheetId: string;
   googleClientId: string;
   googleApiKey: string;
   googleAppId: string;
@@ -218,7 +210,6 @@ const envClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 const envAppId = import.meta.env.VITE_GOOGLE_APP_ID ?? "";
 
 export const defaultConfig: AppConfig = {
-  adminSpreadsheetId: import.meta.env.VITE_ADMIN_SPREADSHEET_ID ?? "",
   googleClientId: envClientId,
   googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY ?? "",
   googleAppId: envAppId || deriveGoogleAppIdFromClientId(envClientId)

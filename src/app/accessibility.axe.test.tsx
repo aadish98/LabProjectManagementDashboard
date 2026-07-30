@@ -39,7 +39,6 @@ const session = {
 };
 
 const config = {
-  adminSpreadsheetId: "admin-file",
   googleClientId: "client",
   googleApiKey: "key",
   googleAppId: "app"
@@ -49,7 +48,6 @@ const managerMembership: Membership = {
   lab: {
     id: "lab",
     name: "Cell Lab",
-    adminSpreadsheetId: "admin-file",
     revision: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     createdBy: "manager",
@@ -262,8 +260,8 @@ describe("axe accessibility guardrails", () => {
           onRetry: vi.fn(),
           workspaceProps: {
             session: { ...session, email: "manager@example.com", name: "Manager" },
+            labId: "lab",
             viewerRole: "manager",
-            config,
             dataset,
             visibleLabMembers: [],
             managerOwnLabMember: null,

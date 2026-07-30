@@ -2,6 +2,29 @@ import { describe, expect, it, vi } from "vitest";
 import { OnboardingApi, OnboardingApiError } from "./onboardingApi";
 
 describe("OnboardingApi", () => {
+  it("binds the default fetch implementation to the global Window receiver", async () => {
+    const originalFetch = globalThis.fetch;
+    let receiver: unknown;
+    globalThis.fetch = vi.fn(function (this: unknown) {
+      receiver = this;
+      return Promise.resolve(
+        new Response(JSON.stringify({ memberships: [] }), { status: 200 })
+      );
+    }) as typeof fetch;
+
+    try {
+      const api = new OnboardingApi({
+        baseUrl: "https://backend.example",
+        idToken: "id-token"
+      });
+
+      await api.getMemberships();
+      expect(receiver).toBe(globalThis);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("uses the ID token for authorization without leaking the Drive token", async () => {
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const headers = new Headers(init?.headers);

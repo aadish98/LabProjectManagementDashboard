@@ -47,7 +47,6 @@ const membership: Membership = {
   lab: {
     id: "lab-id",
     name: "Cell Lab",
-    adminSpreadsheetId: "admin",
     revision: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     createdBy: "manager",
@@ -112,7 +111,6 @@ describe("EmployeeConnectFlow", () => {
           accessToken: "access-token"
         }}
         config={{
-          adminSpreadsheetId: "",
           googleClientId: "client",
           googleApiKey: "key",
           googleAppId: "app"
@@ -321,7 +319,6 @@ describe("EmployeeConnectFlow", () => {
           accessToken: "access-token"
         }}
         config={{
-          adminSpreadsheetId: "admin",
           googleClientId: "client",
           googleApiKey: "key",
           googleAppId: "app"
@@ -450,7 +447,6 @@ function renderGateWith({
         accessToken: "access-token"
       }}
       config={{
-        adminSpreadsheetId: "stale-local-admin",
         googleClientId: "client",
         googleApiKey: "key",
         googleAppId: "app"

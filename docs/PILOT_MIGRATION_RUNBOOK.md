@@ -32,7 +32,7 @@ The command reads one local file and optionally writes one evidence file. It has
 5. Produce a proposed shared column map per member and compare it with actual headers. Flag additions or renames for member review.
 6. Calculate the exact Drive resource set for each role:
    - employee: configured task log;
-   - manager/PI: admin workbook plus configured required task logs.
+   - manager/PI: configured required task logs only.
 7. Confirm every proposed Picker target exactly matches the authoritative spreadsheet ID.
 8. Classify each person into the onboarding lifecycle and record the next actor/action.
 
@@ -42,9 +42,9 @@ Dry-run acceptance requires zero unexplained duplicate identities, a verified wo
 
 Perform each mutating step only after approval and record IDs/revisions returned by the backend.
 
-1. Create and verify the founding bootstrap claim against the intentionally empty canonical `Roles` sheet.
-2. Claim the lab and record the Firestore lab/member IDs.
-3. Create one invitation at a time with an idempotency key, exact workbook ID/tab, roles, and proposed map.
+1. Preview the operator roster import, review the proposed lab/member/config writes, then rerun it with `--apply`.
+2. Record the Firestore lab/member IDs created by the import.
+3. Create any later invitation with an idempotency key, exact task-log ID/tab, roles, and proposed map.
 4. Have the invited account accept the invitation.
 5. Provision exact Drive files from the manager/PI account. Confirm results match the Firestore-derived resource list.
 6. Have the member select the exact workbook through Picker.

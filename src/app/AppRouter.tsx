@@ -1,4 +1,3 @@
-import { extractIdFromUrl } from "../services/sheets/helpers";
 import { selectAppRoute } from "./routing";
 import { AppScreens } from "./screens";
 import type { AppController } from "./useAppController";
@@ -13,13 +12,7 @@ export function AppRouter({ app }: { app: AppController }) {
     viewerRole: app.viewer.role,
     hasEmployeePrefs: Boolean(app.employeePrefs),
     employeeForceSetup: app.employeeForceSetup,
-    onboardingStatus: app.activeMembership?.member.onboarding.status ?? null,
-    canBootstrap: Boolean(
-      app.verifiedEmpty &&
-        app.session?.idToken &&
-        app.session.accessToken &&
-        extractIdFromUrl(app.config.adminSpreadsheetId)
-    )
+    onboardingStatus: app.activeMembership?.member.onboarding.status ?? null
   });
 
   if (route === "signedOut" || !app.session) {
@@ -38,21 +31,6 @@ export function AppRouter({ app }: { app: AppController }) {
 
   if (route === "accessCheck") {
     return <AppScreens route="accessCheck" />;
-  }
-
-  if (route === "bootstrap") {
-    return (
-      <AppScreens
-        route="bootstrap"
-        props={{
-          session: app.session,
-          config: app.config,
-          onClaimed: app.probeAdminAccess,
-          onReconnect: () => void app.requestGoogleSession(),
-          onSignOut: () => void app.signOut()
-        }}
-      />
-    );
   }
 
   if (route === "unauthorized") {
@@ -176,8 +154,8 @@ export function AppRouter({ app }: { app: AppController }) {
         workspaceProps: app.activeDataset
           ? {
               session: app.session,
+              labId: app.activeMembership!.lab.id,
               viewerRole: app.managerRole,
-              config: app.config,
               dataset: app.activeDataset,
               visibleLabMembers: app.visibleLabMembers,
               managerOwnLabMember: app.managerOwnLabMember,

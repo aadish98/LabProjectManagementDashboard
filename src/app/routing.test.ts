@@ -6,8 +6,7 @@ const base = {
   viewerRole: "employee" as const,
   hasEmployeePrefs: true,
   employeeForceSetup: false,
-  onboardingStatus: "ready" as const,
-  canBootstrap: false
+  onboardingStatus: "ready" as const
 };
 
 describe("selectAppRoute", () => {
@@ -69,21 +68,12 @@ describe("selectAppRoute", () => {
     }
   );
 
-  it("shows bootstrap only after a successful empty access probe", () => {
+  it("keeps an unrecognized signed-in account unauthorized", () => {
     expect(
       selectAppRoute({
         ...base,
         viewerRole: "unauthorized",
-        onboardingStatus: null,
-        canBootstrap: true
-      })
-    ).toBe("bootstrap");
-    expect(
-      selectAppRoute({
-        ...base,
-        viewerRole: "unauthorized",
-        onboardingStatus: null,
-        canBootstrap: false
+        onboardingStatus: null
       })
     ).toBe("unauthorized");
   });

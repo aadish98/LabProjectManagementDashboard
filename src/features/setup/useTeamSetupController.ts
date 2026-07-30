@@ -7,7 +7,6 @@ import {
 import type { RoleCapability } from "../../domain/access";
 import type { AppConfig, UserSession } from "../../domain/app";
 import type { Membership } from "../../domain/onboarding";
-import { extractIdFromUrl } from "../../services/sheets/helpers";
 import {
   OnboardingApi,
   OnboardingApiError
@@ -22,8 +21,7 @@ import {
   type PersonDraft
 } from "./teamSetupState";
 import {
-  useTeamMemberActions,
-  type MirrorRetry
+  useTeamMemberActions
 } from "./useTeamMemberActions";
 import { useTeamWorkbookActions } from "./useTeamWorkbookActions";
 
@@ -40,7 +38,6 @@ export function useTeamSetupController({
   config,
   session,
   membership,
-  onChange,
   onClose,
   onSaved
 }: TeamSetupControllerOptions) {
@@ -50,7 +47,6 @@ export function useTeamSetupController({
   const [savingPersonId, setSavingPersonId] = useState<string | null>(null);
   const [pendingRemovalId, setPendingRemovalId] = useState<string | null>(null);
   const [undoDeactivation, setUndoDeactivation] = useState<PersonDraft | null>(null);
-  const [mirrorRetry, setMirrorRetry] = useState<MirrorRetry | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const validation = useMemo(() => validatePeople(people), [people]);
@@ -60,20 +56,6 @@ export function useTeamSetupController({
   );
   const controlsDisabled = loading || !!savingPersonId;
   const pendingRemoval = people.find((person) => person.id === pendingRemovalId) ?? null;
-  const authoritativeAdminSpreadsheetId = membership?.lab.adminSpreadsheetId.trim() ?? "";
-
-  useEffect(() => {
-    if (
-      authoritativeAdminSpreadsheetId &&
-      extractIdFromUrl(config.adminSpreadsheetId) !== authoritativeAdminSpreadsheetId
-    ) {
-      onChange({
-        ...config,
-        adminSpreadsheetId: authoritativeAdminSpreadsheetId
-      });
-    }
-  }, [authoritativeAdminSpreadsheetId, config, onChange]);
-
   const loadAuthoritativePeople = useCallback(async () => {
     if (!membership || !session.idToken) return;
     setLoading(true);
@@ -146,22 +128,17 @@ export function useTeamSetupController({
     setError
   });
   const memberActions = useTeamMemberActions({
-    config,
     session,
     membership,
-    authoritativeAdminSpreadsheetId,
     validation,
     undoDeactivation,
-    mirrorRetry,
     setPeople,
     setSavedPeople,
     setSavingPersonId,
     setPendingRemovalId,
     setUndoDeactivation,
-    setMirrorRetry,
     setError,
     setNotice,
-    reloadPeople: loadAuthoritativePeople,
     onSaved
   });
 
@@ -176,11 +153,9 @@ export function useTeamSetupController({
     pendingRemovalId,
     pendingRemoval,
     undoDeactivation,
-    mirrorRetry,
     error,
     notice,
     controlsDisabled,
-    authoritativeAdminSpreadsheetId,
     actions: {
       onClose,
       addInvitation: () => setPeople((rows) => [...rows, blankPerson()]),

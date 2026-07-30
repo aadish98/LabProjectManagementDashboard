@@ -1,5 +1,5 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
-import type { AppConfig, EmployeeSheetPrefs, UserSession } from "../domain/app";
+import type { EmployeeSheetPrefs, UserSession } from "../domain/app";
 import type {
   DashboardDataset,
   ExperimentDraft,
@@ -8,7 +8,6 @@ import type {
 } from "../domain/experiment";
 import type { Membership } from "../domain/onboarding";
 import type { CompletionPayload, OverduePayload } from "../features/employee/EmployeeWorkspace";
-import { appendRunLogEntry } from "../services/sheets/admin";
 import { loadGoogleSheetsDataset } from "../services/sheets/dataset";
 import {
   isGoogleSheetsAuthError,
@@ -24,11 +23,6 @@ import {
   updateTaskInSheet
 } from "../services/sheets/taskLog";
 import type { ManagerFileAccessIssue, StatusMessage } from "./screens";
-import {
-  buildManagerAuditEntry,
-  changedTaskFields,
-  createdTaskFields
-} from "./taskAudit";
 
 export type DatasetScope = {
   role: "employee" | "manager" | "pi";
@@ -46,7 +40,6 @@ export type MemberTaskPrefsResolver = (
 
 interface TaskMutationOptions {
   session: UserSession | null;
-  config: AppConfig;
   employeePrefs: EmployeeSheetPrefs | null;
   employeeLabMember: string;
   managerRole: "manager" | "pi";
@@ -66,16 +59,6 @@ interface TaskMutationOptions {
 }
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
-
-export class ManagerAuditAppendError extends Error {
-  constructor(cause: unknown) {
-    super(
-      "The task change was saved, but the RunLog audit append failed. The task change was not rolled back; refresh before making another change."
-    );
-    this.name = "ManagerAuditAppendError";
-    (this as Error & { cause?: unknown }).cause = cause;
-  }
-}
 
 function requireAuditableMember(
   destination: Pick<SheetRegistryEntry, "memberId" | "labMember">
@@ -109,7 +92,6 @@ function refreshedTaskConflict(error: SheetRevisionConflictError): SheetRevision
 
 export function useTaskMutations({
   session,
-  config,
   employeePrefs,
   employeeLabMember,
   managerRole,
@@ -195,7 +177,8 @@ export function useTaskMutations({
         activeLabId,
         freshSession
       );
-      const next = await loadGoogleSheetsDataset(config, freshSession, {
+      const next = await loadGoogleSheetsDataset(freshSession, {
+        labId: activeLabId,
         viewerRole: managerRole,
         authoritativeMembers
       });
@@ -206,7 +189,6 @@ export function useTaskMutations({
     },
     [
       activeLabId,
-      config,
       loadAuthoritativeManagerMembers,
       managerRole,
       setDataset,
@@ -271,20 +253,6 @@ export function useTaskMutations({
       throw legacyTaskReopenError();
     },
     [reloadManagerDataset]
-  );
-
-  const appendManagerAudit = useCallback(
-    async (
-      freshSession: UserSession,
-      entry: Parameters<typeof appendRunLogEntry>[2]
-    ) => {
-      try {
-        await appendRunLogEntry(config, freshSession, entry);
-      } catch (error) {
-        throw new ManagerAuditAppendError(error);
-      }
-    },
-    [config]
   );
 
   const saveManagerTask = useCallback(
@@ -381,21 +349,7 @@ export function useTaskMutations({
               requireAuditableMember(managerOwnEntry);
               const memberId = managerOwnEntry.memberId as string;
               const prefs = await resolveMemberTaskPrefs(memberId, fresh);
-              const destination = { ...managerOwnEntry, ...prefs };
-              const taskId = requireTaskId(
-                await createTaskInSheet(prefs, fresh, draft)
-              );
-              await appendManagerAudit(
-                fresh,
-                buildManagerAuditEntry({
-                  actorEmail: fresh.email,
-                  destination,
-                  taskId,
-                  action: "task.created",
-                  changedFields: createdTaskFields(draft),
-                  status: draft.status
-                })
-              );
+              requireTaskId(await createTaskInSheet(prefs, fresh, draft));
             },
             "Task created."
           )
@@ -407,7 +361,6 @@ export function useTaskMutations({
               requireAuditableMember(managerOwnEntry);
               const memberId = managerOwnEntry.memberId as string;
               const prefs = await resolveMemberTaskPrefs(memberId, fresh);
-              const destination = { ...managerOwnEntry, ...prefs };
               const identity = await resolveManagerIdentity(
                 prefs,
                 {
@@ -422,17 +375,6 @@ export function useTaskMutations({
                 identity,
                 draft
               );
-              await appendManagerAudit(
-                fresh,
-                buildManagerAuditEntry({
-                  actorEmail: fresh.email,
-                  destination,
-                  taskId: identity.taskId,
-                  action: "task.updated",
-                  changedFields: changedTaskFields(record, draft),
-                  status: draft.status
-                })
-              );
             },
             "Task updated."
           )
@@ -444,7 +386,6 @@ export function useTaskMutations({
               requireAuditableMember(managerOwnEntry);
               const memberId = managerOwnEntry.memberId as string;
               const prefs = await resolveMemberTaskPrefs(memberId, fresh);
-              const destination = { ...managerOwnEntry, ...prefs };
               const identity = await resolveManagerIdentity(
                 prefs,
                 payload,
@@ -454,17 +395,6 @@ export function useTaskMutations({
                 ...payload,
                 ...identity
               });
-              await appendManagerAudit(
-                fresh,
-                buildManagerAuditEntry({
-                  actorEmail: fresh.email,
-                  destination,
-                  taskId: identity.taskId,
-                  action: "task.completed",
-                  changedFields: ["status", "result", "dataLink", "schematic"],
-                  status: "Complete"
-                })
-              );
             },
             "Task marked complete."
           )
@@ -476,7 +406,6 @@ export function useTaskMutations({
               requireAuditableMember(managerOwnEntry);
               const memberId = managerOwnEntry.memberId as string;
               const prefs = await resolveMemberTaskPrefs(memberId, fresh);
-              const destination = { ...managerOwnEntry, ...prefs };
               const identity = await resolveManagerIdentity(
                 prefs,
                 payload,
@@ -486,18 +415,6 @@ export function useTaskMutations({
                 ...payload,
                 ...identity
               });
-              await appendManagerAudit(
-                fresh,
-                buildManagerAuditEntry({
-                  actorEmail: fresh.email,
-                  destination,
-                  taskId: identity.taskId,
-                  action: "task.updated",
-                  changedFields: ["projectedEndDateRaw", "timeEstimate", "comments"],
-                  status: "Overdue rescheduled",
-                  note: payload.delayComment
-                })
-              );
             },
             "Overdue task updated."
           )
@@ -508,23 +425,7 @@ export function useTaskMutations({
           requireAuditableMember(entry);
           const memberId = entry.memberId as string;
           const prefs = await resolveMemberTaskPrefs(memberId, fresh);
-          const destination = { ...entry, ...prefs };
-          const taskId = await createTaskInSheet(
-            prefs,
-            fresh,
-            draft
-          );
-          await appendManagerAudit(
-            fresh,
-            buildManagerAuditEntry({
-              actorEmail: fresh.email,
-              destination,
-              taskId: requireTaskId(taskId),
-              action: "task.created",
-              changedFields: createdTaskFields(draft),
-              status: draft.status
-            })
-          );
+          requireTaskId(await createTaskInSheet(prefs, fresh, draft));
         },
         `Task added for ${entry.labMember}.`,
         `Unable to add task for ${entry.labMember}.`
@@ -544,28 +445,11 @@ export function useTaskMutations({
             },
             fresh
           );
-          const destination = {
-            memberId,
-            labMember: record.labMember,
-            taskLogUrl: prefs.taskLogUrl,
-            activeSheetName: prefs.activeSheetName
-          };
           await updateTaskInSheet(
             prefs,
             fresh,
             identity,
             draft
-          );
-          await appendManagerAudit(
-            fresh,
-            buildManagerAuditEntry({
-              actorEmail: fresh.email,
-              destination,
-              taskId: identity.taskId,
-              action: "task.updated",
-              changedFields: changedTaskFields(record, draft),
-              status: draft.status
-            })
           );
         },
         `Task updated for ${record.labMember}.`,

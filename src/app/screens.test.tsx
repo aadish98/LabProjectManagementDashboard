@@ -101,7 +101,6 @@ describe("route landmarks", () => {
           workspaceProps: null,
           setupProps: {
             config: {
-              adminSpreadsheetId: "",
               googleClientId: "client",
               googleApiKey: "key",
               googleAppId: "app"

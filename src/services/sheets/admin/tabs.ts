@@ -1,4 +1,4 @@
-import type { AppConfig, UserSession } from "../../../domain/app";
+import type { UserSession } from "../../../domain/app";
 import { ADMIN_TAB_NAMES } from "../../../domain/app";
 import { getValuesForSheet, requestSheets, SHEETS_API_ROOT } from "../client";
 import { GoogleSheetsAuthError, SheetsError } from "../errors";
@@ -16,6 +16,7 @@ import {
   ADMIN_REGISTRY_HEADERS,
   ADMIN_ROLES_HEADERS,
   RUN_LOG_HEADERS,
+  type AdminWorkbookConnection,
   type AdminTabResolution
 } from "./types";
 
@@ -132,7 +133,7 @@ export async function ensureCanonicalHeaders(
 }
 
 export async function ensureAdminWorkbookSkeleton(
-  config: AppConfig,
+  config: AdminWorkbookConnection,
   session: UserSession
 ): Promise<void> {
   const spreadsheetId = extractIdFromUrl(config.adminSpreadsheetId);

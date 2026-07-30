@@ -2,8 +2,7 @@ import {
   normalizeEmail,
   type RoleCapability
 } from "../../domain/access";
-import type { AppConfig, UserSession } from "../../domain/app";
-import { ADMIN_TAB_NAMES } from "../../domain/app";
+import type { UserSession } from "../../domain/app";
 import {
   acceptedMemberPrefs,
   type Membership
@@ -20,10 +19,7 @@ import {
   readDatasetCache,
   writeDatasetCache
 } from "../cache";
-import {
-  getOptionalValuesForSheet,
-  getValuesForSheet
-} from "./client";
+import { getValuesForSheet } from "./client";
 import {
   GoogleSheetsAuthError,
   GoogleSheetsFileAccessError,
@@ -37,9 +33,7 @@ import {
 import { extractIdFromUrl } from "./helpers";
 import { readEmployeeProfileForManager } from "./profile";
 import {
-  parseExperimentRows,
-  parseFeedback,
-  parseRunLog
+  parseExperimentRows
 } from "./taskLog";
 
 export function mergeLastKnownExperiments(
@@ -69,41 +63,20 @@ export function mergeLastKnownExperiments(
 }
 
 export async function loadGoogleSheetsDataset(
-  config: AppConfig,
   session: UserSession,
   options: {
+    labId: string;
     viewerRole: Extract<RoleCapability, "manager" | "pi">;
     authoritativeMembers: ReadonlyArray<Pick<Membership, "member" | "config">>;
   }
 ): Promise<DashboardDataset> {
-  const adminSpreadsheetId = extractIdFromUrl(
-    config.adminSpreadsheetId
-  );
-  if (!adminSpreadsheetId) {
-    throw new Error("Choose the Admin workbook in Team setup.");
-  }
   if (!session.accessToken) throw new GoogleSheetsAuthError();
 
-  const cacheKey = `${getDatasetCacheKey(adminSpreadsheetId)}/${
+  const cacheKey = `${getDatasetCacheKey(options.labId)}/${
     options.viewerRole
   }/${normalizeEmail(session.email)}`;
 
   try {
-    const [runLogRows, feedbackRows] = await Promise.all([
-      getValuesForSheet(
-        adminSpreadsheetId,
-        ADMIN_TAB_NAMES.runLog,
-        "A:Z",
-        session.accessToken
-      ),
-      getOptionalValuesForSheet(
-        adminSpreadsheetId,
-        ADMIN_TAB_NAMES.feedback,
-        "A:Z",
-        session.accessToken
-      )
-    ]);
-
     const visibleMembers = options.authoritativeMembers.filter(({ member }) => {
       if (!member.active) return false;
       if (options.viewerRole === "pi") return true;
@@ -266,8 +239,8 @@ export async function loadGoogleSheetsDataset(
       source: "googleSheets",
       registry: registryEntries,
       experiments: merged.experiments,
-      runLog: parseRunLog(runLogRows),
-      feedbackThreads: parseFeedback(feedbackRows),
+      runLog: [],
+      feedbackThreads: [],
       roleDirectory: roles,
       lastSyncedAt: new Date().toISOString(),
       syncNote:

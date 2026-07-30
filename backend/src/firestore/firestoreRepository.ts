@@ -15,7 +15,6 @@ import {
   STATUS_DEFAULTS
 } from "../domain/lifecycle.js";
 import type {
-  BootstrapClaim,
   DriveProvisioningContext,
   DriveResource,
   Identity,
@@ -40,143 +39,6 @@ const nowIso = (): string => new Date().toISOString();
 
 export class FirestoreOnboardingRepository implements OnboardingRepository {
   constructor(private readonly db: Firestore) {}
-
-  async createBootstrapClaim(
-    identity: Identity,
-    input: { labName: string; adminSpreadsheetId: string; ttlSeconds: number },
-    idempotencyKey: string
-  ): Promise<Versioned<BootstrapClaim>> {
-    const id = randomUUID();
-    const claimRef = this.db.collection("bootstrapClaims").doc(id);
-    const keyRef = this.globalIdempotencyRef(identity.subject, "bootstrap", idempotencyKey);
-    return this.db.runTransaction(async (transaction) => {
-      const keySnapshot = await transaction.get(keyRef);
-      if (keySnapshot.exists) {
-        const priorId = requiredString(keySnapshot.data(), "claimId");
-        return { value: await getInTransaction<BootstrapClaim>(transaction, this.db.collection("bootstrapClaims").doc(priorId), "BOOTSTRAP_CLAIM_NOT_FOUND"), replayed: true };
-      }
-      const createdAt = nowIso();
-      const claim: BootstrapClaim = {
-        id,
-        ownerSubject: identity.subject,
-        ownerEmail: normalizeEmail(identity.email),
-        ownerName: identity.name?.trim() || identity.email,
-        labName: input.labName.trim(),
-        adminSpreadsheetId: input.adminSpreadsheetId.trim(),
-        createdAt,
-        expiresAt: new Date(Date.now() + input.ttlSeconds * 1000).toISOString()
-      };
-      transaction.create(claimRef, claim);
-      transaction.create(keyRef, { claimId: id, createdAt });
-      return { value: claim, replayed: false };
-    });
-  }
-
-  async claimLab(
-    identity: Identity,
-    claimId: string,
-    idempotencyKey: string
-  ): Promise<Versioned<{ lab: Lab; member: Member }>> {
-    const claimRef = this.db.collection("bootstrapClaims").doc(claimId);
-    const keyRef = this.globalIdempotencyRef(
-      identity.subject,
-      `claim:${claimId}`,
-      idempotencyKey
-    );
-    return this.db.runTransaction(async (transaction) => {
-      const claim = await getInTransaction<BootstrapClaim>(
-        transaction,
-        claimRef,
-        "BOOTSTRAP_CLAIM_NOT_FOUND"
-      );
-      if (claim.ownerSubject !== identity.subject || claim.ownerEmail !== normalizeEmail(identity.email)) {
-        forbidden("Only the Google account that verified the empty Roles sheet can claim this lab.");
-      }
-      const keySnapshot = await transaction.get(keyRef);
-      if (keySnapshot.exists) {
-        const labId = requiredString(keySnapshot.data(), "labId");
-        const memberId = requiredString(keySnapshot.data(), "memberId");
-        const lab = await getInTransaction<Lab>(
-          transaction,
-          this.labRef(labId),
-          "LAB_NOT_FOUND"
-        );
-        const member = await getInTransaction<Member>(
-          transaction,
-          this.memberRef(labId, memberId),
-          "MEMBER_NOT_FOUND"
-        );
-        return { value: { lab, member }, replayed: true };
-      }
-      if (claim.claimedAt && claim.labId) {
-        const lab = await getInTransaction<Lab>(
-          transaction,
-          this.labRef(claim.labId),
-          "LAB_NOT_FOUND"
-        );
-        const member = await this.findMemberByEmailInTransaction(
-          transaction,
-          claim.labId,
-          identity.email
-        );
-        if (!member) notFound("MEMBER_NOT_FOUND", "The bootstrap owner member is missing.");
-        return { value: { lab, member }, replayed: true };
-      }
-      if (new Date(claim.expiresAt).getTime() <= Date.now()) {
-        throw new ApiError({
-          status: 410,
-          code: "BOOTSTRAP_CLAIM_EXPIRED",
-          message: "The empty-Roles verification claim has expired.",
-          action: "Verify the empty canonical Roles sheet again to create a new claim."
-        });
-      }
-
-      const labId = randomUUID();
-      const memberId = randomUUID();
-      const createdAt = nowIso();
-      const lab: Lab = {
-        id: labId,
-        name: claim.labName,
-        adminSpreadsheetId: claim.adminSpreadsheetId,
-        revision: 1,
-        createdAt,
-        createdBy: identity.subject,
-        updatedAt: createdAt
-      };
-      const member: Member = {
-        id: memberId,
-        labId,
-        email: normalizeEmail(identity.email),
-        normalizedEmail: normalizeEmail(identity.email),
-        displayName: identity.name?.trim() || claim.ownerName,
-        roles: ["manager", "pi"],
-        active: true,
-        revision: 1,
-        onboarding: {
-          status: "needsPicker",
-          owner: "member",
-          reason: "The lab claim is complete; exact-file Picker proof is still required.",
-          nextAction: "Select the exact Admin workbook to complete first-run verification.",
-          updatedAt: createdAt
-        },
-        createdAt,
-        createdBy: identity.subject,
-        updatedAt: createdAt
-      };
-      transaction.create(this.labRef(labId), lab);
-      transaction.create(this.memberRef(labId, memberId), member);
-      transaction.create(keyRef, { labId, memberId, createdAt });
-      transaction.update(claimRef, { claimedAt: createdAt, labId });
-      this.appendEvent(transaction, labId, {
-        actor: identity,
-        memberId,
-        type: "lab.claimed",
-        toStatus: "needsPicker",
-        revision: member.revision
-      });
-      return { value: { lab, member }, replayed: false };
-    });
-  }
 
   async listInvitationsForEmail(email: string): Promise<Invitation[]> {
     const now = nowIso();
@@ -966,15 +828,13 @@ export class FirestoreOnboardingRepository implements OnboardingRepository {
     memberId: string,
     actor: Identity
   ): Promise<{ member: Member; progress: ManagerFileProgress }> {
-    const [lab, member, membersSnapshot, configsSnapshot] = await Promise.all([
-      this.getLab(labId),
+    const [member, membersSnapshot, configsSnapshot] = await Promise.all([
       this.getMember(labId, memberId),
       this.labRef(labId).collection("members").where("active", "==", true).get(),
       this.labRef(labId).collection("configs").get()
     ]);
     assertManagerProofOwner(member, actor);
     const progress = managerFileProgress(
-      lab,
       member,
       membersSnapshot.docs.map((document) => document.data() as Member),
       configsSnapshot.docs.map((document) => document.data() as MemberConfig)
@@ -990,11 +850,6 @@ export class FirestoreOnboardingRepository implements OnboardingRepository {
     expectedRevision: number
   ): Promise<{ member: Member; progress: ManagerFileProgress }> {
     return this.db.runTransaction(async (transaction) => {
-      const lab = await getInTransaction<Lab>(
-        transaction,
-        this.labRef(labId),
-        "LAB_NOT_FOUND"
-      );
       const memberRef = this.memberRef(labId, memberId);
       const member = await getInTransaction<Member>(
         transaction,
@@ -1029,7 +884,7 @@ export class FirestoreOnboardingRepository implements OnboardingRepository {
       const configs = configsSnapshot.docs.map(
         (document) => document.data() as MemberConfig
       );
-      const currentProgress = managerFileProgress(lab, member, activeMembers, configs);
+      const currentProgress = managerFileProgress(member, activeMembers, configs);
       const requiredIds = new Set(
         currentProgress.requiredFiles.map((resource) => resource.fileId)
       );
@@ -1093,7 +948,7 @@ export class FirestoreOnboardingRepository implements OnboardingRepository {
       });
       return {
         member: nextMember,
-        progress: managerFileProgress(lab, nextMember, activeMembers, configs)
+        progress: managerFileProgress(nextMember, activeMembers, configs)
       };
     });
   }
@@ -1132,8 +987,7 @@ export class FirestoreOnboardingRepository implements OnboardingRepository {
     actorEmail: string,
     targetMemberId: string
   ): Promise<DriveProvisioningContext> {
-    const [lab, actor, target, targetConfig] = await Promise.all([
-      this.getLab(labId),
+    const [actor, target, targetConfig] = await Promise.all([
       this.findMemberByEmail(labId, actorEmail),
       this.getMember(labId, targetMemberId),
       this.getConfig(labId, targetMemberId)
@@ -1159,7 +1013,7 @@ export class FirestoreOnboardingRepository implements OnboardingRepository {
     return {
       actor,
       target,
-      resources: buildDriveProvisioningResources(lab, target, targetConfig, members, configs)
+      resources: buildDriveProvisioningResources(target, targetConfig, members, configs)
     };
   }
 
@@ -1307,14 +1161,6 @@ export class FirestoreOnboardingRepository implements OnboardingRepository {
     return this.labRef(labId).collection("invitations").doc(invitationId);
   }
 
-  private globalIdempotencyRef(
-    subject: string,
-    operation: string,
-    key: string
-  ): DocumentReference<DocumentData> {
-    return this.db.collection("idempotency").doc(idempotencyId(subject, operation, key));
-  }
-
   private labIdempotencyRef(
     labId: string,
     subject: string,
@@ -1343,18 +1189,12 @@ function assertManagerProofOwner(member: Member, actor: Identity): void {
 }
 
 function managerFileProgress(
-  lab: Lab,
   manager: Member,
   activeMembers: Member[],
   configs: MemberConfig[]
 ): ManagerFileProgress {
   const activeById = new Map(activeMembers.map((member) => [member.id, member]));
   const required = new Map<string, ManagerRequiredFile>();
-  required.set(lab.adminSpreadsheetId, {
-    fileId: lab.adminSpreadsheetId,
-    purpose: "adminWorkbook",
-    label: "Admin workbook"
-  });
   for (const config of configs) {
     const member = activeById.get(config.memberId);
     if (!member || !config.spreadsheetId.trim()) continue;
@@ -1366,12 +1206,9 @@ function managerFileProgress(
       ...(config.activeSheetName ? { activeSheetName: config.activeSheetName } : {})
     });
   }
-  const requiredFiles = [...required.values()].sort((left, right) => {
-    if (left.purpose !== right.purpose) {
-      return left.purpose === "adminWorkbook" ? -1 : 1;
-    }
-    return left.label.localeCompare(right.label);
-  });
+  const requiredFiles = [...required.values()].sort((left, right) =>
+    left.label.localeCompare(right.label)
+  );
   const requiredIds = new Set(requiredFiles.map((resource) => resource.fileId));
   const verifiedFileIds = (manager.managerFileProof?.verifiedFileIds ?? []).filter((id) =>
     requiredIds.has(id)
@@ -1402,7 +1239,6 @@ function withoutVerificationProof(config: MemberConfig): MemberConfig {
 }
 
 export function buildDriveProvisioningResources(
-  lab: Lab,
   target: Member,
   targetConfig: MemberConfig,
   members: Member[],
@@ -1420,9 +1256,7 @@ export function buildDriveProvisioningResources(
     return [...resources.values()];
   }
 
-  addResource({ fileId: lab.adminSpreadsheetId, purpose: "adminWorkbook" });
   const activeMemberFiles = managerFileProgress(
-    lab,
     target,
     members.filter((member) => member.active),
     configs

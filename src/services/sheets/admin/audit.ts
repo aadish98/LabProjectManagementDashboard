@@ -1,4 +1,4 @@
-import type { AppConfig, UserSession } from "../../../domain/app";
+import type { UserSession } from "../../../domain/app";
 import { ADMIN_TAB_NAMES } from "../../../domain/app";
 import { requestSheets, SHEETS_API_ROOT } from "../client";
 import { GoogleSheetsAuthError } from "../errors";
@@ -8,10 +8,14 @@ import {
   extractIdFromUrl
 } from "../helpers";
 import { ensureCanonicalHeaders, resolveAdminTab } from "./tabs";
-import { RUN_LOG_HEADERS, type RunLogAuditWrite } from "./types";
+import {
+  RUN_LOG_HEADERS,
+  type AdminWorkbookConnection,
+  type RunLogAuditWrite
+} from "./types";
 
 export async function appendRunLogEntry(
-  config: AppConfig,
+  config: AdminWorkbookConnection,
   session: UserSession,
   entry: RunLogAuditWrite
 ): Promise<void> {

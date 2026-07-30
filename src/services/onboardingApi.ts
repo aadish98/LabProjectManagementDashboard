@@ -1,6 +1,5 @@
 import type { EmployeeSheetColumnMap } from "../domain/app";
 import type {
-  BootstrapClaim,
   Invitation,
   Lab,
   ManagerFileProgress,
@@ -85,43 +84,14 @@ export class OnboardingApi {
     this.baseUrl = (options.baseUrl ?? BACKEND_BASE_URL).trim().replace(/\/+$/, "");
     this.idToken = options.idToken?.trim() ?? "";
     this.driveAccessToken = options.driveAccessToken?.trim() || undefined;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    // WebKit requires Window.fetch to be invoked with Window as its receiver.
+    // Binding here keeps the default implementation safe when it is stored on
+    // this service instance and later called as `this.fetchImpl(...)`.
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   getMemberships(): Promise<{ memberships: Membership[] }> {
     return this.request("/v1/me/memberships");
-  }
-
-  createBootstrapClaim(
-    labName: string,
-    adminSpreadsheetId: string,
-    idempotencyKey = crypto.randomUUID()
-  ): Promise<{ claim: BootstrapClaim; replayed: boolean }> {
-    if (!this.driveAccessToken) {
-      throw new OnboardingApiError({
-        kind: "identity",
-        code: "DRIVE_ACCESS_TOKEN_REQUIRED",
-        message: "A fresh Google Drive token is required to verify the bootstrap workbook.",
-        action: "Reconnect Google and retry the explicit lab claim."
-      });
-    }
-    return this.request("/v1/labs/bootstrap", {
-      method: "POST",
-      body: { labName, adminSpreadsheetId },
-      idempotencyKey,
-      includeDriveToken: true
-    });
-  }
-
-  claimBootstrap(
-    claimId: string,
-    idempotencyKey = crypto.randomUUID()
-  ): Promise<{ lab: Lab; member: Member; replayed: boolean }> {
-    return this.request(`/v1/labs/bootstrap/${encodeURIComponent(claimId)}/claim`, {
-      method: "POST",
-      body: {},
-      idempotencyKey
-    });
   }
 
   getMyInvitations(): Promise<{ invitations: Invitation[] }> {
@@ -367,13 +337,20 @@ export class OnboardingApi {
         ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {})
       });
     } catch (cause) {
+      const causeText = cause instanceof Error ? cause.message : String(cause);
       throw new OnboardingApiError({
         kind: "transport",
         code: "BACKEND_UNREACHABLE",
         message: "The authoritative onboarding service could not be reached.",
-        action: "Check the network connection and retry. Previously verified access is preserved.",
+        action: `Check the network connection and retry. Previously verified access is preserved.${
+          causeText ? ` (${causeText})` : ""
+        }`,
         retryable: true,
-        details: { cause: cause instanceof Error ? cause.message : String(cause) }
+        details: {
+          cause: causeText,
+          backendBaseUrl: this.baseUrl,
+          path
+        }
       });
     }
 

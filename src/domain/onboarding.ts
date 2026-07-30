@@ -25,7 +25,6 @@ export interface OnboardingState {
 export interface Lab {
   id: string;
   name: string;
-  adminSpreadsheetId: string;
   revision: number;
   createdAt: string;
   createdBy: string;
@@ -54,7 +53,7 @@ export interface Member {
 
 export interface ManagerRequiredFile {
   fileId: string;
-  purpose: "adminWorkbook" | "requiredTaskLog";
+  purpose: "requiredTaskLog";
   label: string;
   memberId?: string;
   activeSheetName?: string;
@@ -107,19 +106,6 @@ export interface Membership {
   member: Member;
   lab: Lab;
   config: MemberConfig | null;
-}
-
-export interface BootstrapClaim {
-  id: string;
-  ownerSubject: string;
-  ownerEmail: string;
-  ownerName: string;
-  labName: string;
-  adminSpreadsheetId: string;
-  expiresAt: string;
-  createdAt: string;
-  claimedAt?: string;
-  labId?: string;
 }
 
 export interface InvitationBundle {

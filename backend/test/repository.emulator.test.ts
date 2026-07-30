@@ -1,6 +1,6 @@
 import type { Firestore } from "@google-cloud/firestore";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { Identity, InvitationInput } from "../src/domain/types.js";
+import type { Identity, InvitationInput, Lab, Member } from "../src/domain/types.js";
 import {
   createFirestore,
   FirestoreOnboardingRepository
@@ -39,43 +39,49 @@ describeEmulator("FirestoreOnboardingRepository emulator", () => {
     if (firestore) await firestore.terminate();
   });
 
-  it("claims a lab and creates an invitation transaction idempotently", async () => {
+  it("uses an operator-provisioned lab to create an invitation idempotently", async () => {
     const owner: Identity = {
       subject: "owner-google-subject",
       email: "owner@example.com",
       emailVerified: true,
       name: "Lab Owner"
     };
-    const claim = await repository.createBootstrapClaim(
-      owner,
-      {
-        labName: "Emulator Lab",
-        adminSpreadsheetId: "admin-file-id",
-        ttlSeconds: 600
+    const labId = "9f62dce9-752e-4c39-91b3-98e35fffd1e9";
+    const ownerId = "ad0de8ec-6bce-4c26-9f3a-b5ca56e70c86";
+    const createdAt = "2026-01-01T00:00:00.000Z";
+    const lab: Lab = {
+      id: labId,
+      name: "Emulator Lab",
+      adminSpreadsheetId: "operator-only-admin-file-id",
+      revision: 1,
+      createdAt,
+      createdBy: owner.subject,
+      updatedAt: createdAt
+    };
+    const ownerMember: Member = {
+      id: ownerId,
+      labId,
+      email: owner.email,
+      normalizedEmail: owner.email,
+      displayName: owner.name ?? owner.email,
+      roles: ["manager", "pi"],
+      active: true,
+      revision: 1,
+      onboarding: {
+        status: "ready",
+        owner: "system",
+        reason: "Imported by an operator.",
+        nextAction: "Open the manager workspace.",
+        updatedAt: createdAt
       },
-      "bootstrap-idempotency-key"
-    );
-    const claimed = await repository.claimLab(
-      owner,
-      claim.value.id,
-      "claim-idempotency-key"
-    );
-    expect(claimed.value.member.roles).toEqual(["manager", "pi"]);
-    expect(claimed.value.member.onboarding.status).toBe("needsPicker");
-    const firstRun = await repository.recordManagerFileProof(
-      claimed.value.lab.id,
-      claimed.value.member.id,
-      owner,
-      ["admin-file-id"],
-      claimed.value.member.revision
-    );
-    expect(firstRun.progress).toMatchObject({
-      verifiedFileIds: ["admin-file-id"],
-      remainingFileIds: [],
-      complete: true,
-      requiresColumnReview: false
-    });
-    expect(firstRun.member.onboarding.status).toBe("ready");
+      createdAt,
+      createdBy: owner.subject,
+      updatedAt: createdAt
+    };
+    await Promise.all([
+      firestore.collection("labs").doc(labId).set(lab),
+      firestore.collection("labs").doc(labId).collection("members").doc(ownerId).set(ownerMember)
+    ]);
 
     const invitationInput: InvitationInput = {
       email: "new.member@example.com",
@@ -90,13 +96,13 @@ describeEmulator("FirestoreOnboardingRepository emulator", () => {
       }
     };
     const first = await repository.createInvitation(
-      claimed.value.lab.id,
+      labId,
       owner,
       invitationInput,
       "invitation-idempotency-key"
     );
     const replay = await repository.createInvitation(
-      claimed.value.lab.id,
+      labId,
       owner,
       invitationInput,
       "invitation-idempotency-key"

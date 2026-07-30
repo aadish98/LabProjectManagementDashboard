@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:emulator": "node scripts/run-emulator-tests.mjs",
     "deploy:check": "bash scripts/deploy.sh --check",
+    "roster:import": "node --import tsx scripts/import-admin-roster.ts",
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {

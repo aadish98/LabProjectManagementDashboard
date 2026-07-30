@@ -1,9 +1,8 @@
 import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import type { AppConfig, EmployeeSheetPrefs, UserSession, ViewerContext } from "../domain/app";
+import type { EmployeeSheetPrefs, UserSession, ViewerContext } from "../domain/app";
 import type { DashboardDataset } from "../domain/experiment";
 import type { Membership } from "../domain/onboarding";
 import {
-  isAdminWorkbookSchemaError,
   isGoogleSheetsAuthError,
   isGoogleSheetsFileAccessError,
   sheetsErrorMessage,
@@ -24,7 +23,6 @@ type FreshSessionRunner = <T>(
 interface DatasetSyncOptions {
   session: UserSession | null;
   sessionEmailKey: string;
-  config: AppConfig;
   viewer: ViewerContext;
   onboardingReady: boolean;
   activeLabId: string | null;
@@ -43,7 +41,6 @@ interface DatasetSyncOptions {
   setDatasetScope: Dispatch<SetStateAction<DatasetScope | null>>;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setStatus: Dispatch<SetStateAction<StatusMessage>>;
-  setShowSetup: Dispatch<SetStateAction<boolean>>;
   setEmployeeForceSetup: Dispatch<SetStateAction<boolean>>;
   setManagerFileAccessIssue: Dispatch<SetStateAction<ManagerFileAccessIssue | null>>;
 }
@@ -54,7 +51,6 @@ export function useDatasetSync(options: DatasetSyncOptions) {
   const {
     session,
     sessionEmailKey,
-    config,
     viewer,
     onboardingReady,
     activeLabId,
@@ -70,7 +66,6 @@ export function useDatasetSync(options: DatasetSyncOptions) {
     setDatasetScope,
     setLoading,
     setStatus,
-    setShowSetup,
     setEmployeeForceSetup,
     setManagerFileAccessIssue
   } = options;
@@ -85,7 +80,8 @@ export function useDatasetSync(options: DatasetSyncOptions) {
           freshSession
         );
         return {
-          dataset: await loadGoogleSheetsDataset(config, freshSession, {
+          dataset: await loadGoogleSheetsDataset(freshSession, {
+            labId: activeLabId,
             viewerRole: viewer.role === "pi" ? "pi" : "manager",
             authoritativeMembers
           }),
@@ -132,13 +128,6 @@ export function useDatasetSync(options: DatasetSyncOptions) {
           ...sheetsErrorStatusFields(error),
           text: error.message
         });
-      } else if (isAdminWorkbookSchemaError(error)) {
-        setStatus({
-          kind: "error",
-          ...sheetsErrorStatusFields(error),
-          text: `${error.message} Open Team setup and click "Fix missing setup sheets" to add the required workbook tabs.`
-        });
-        setShowSetup(true);
       } else {
         setStatus({
           kind: "error",
@@ -158,7 +147,6 @@ export function useDatasetSync(options: DatasetSyncOptions) {
     }
   }, [
     activeLabId,
-    config,
     activeDataset,
     loadAuthoritativeManagerMembers,
     requireFreshGoogleSignIn,
@@ -167,7 +155,6 @@ export function useDatasetSync(options: DatasetSyncOptions) {
     setDatasetScope,
     setLoading,
     setManagerFileAccessIssue,
-    setShowSetup,
     setStatus,
     viewer.role,
     withFreshSession

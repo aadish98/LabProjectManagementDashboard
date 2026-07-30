@@ -87,12 +87,8 @@ function TeamSetupHeader({ controller }: { controller: TeamSetupController }) {
       <div>
         <h2>Authoritative Member onboarding</h2>
         <p>
-          {controller.membership?.lab.name} · Backend records control access and readiness. Google
-          Sheets is maintained only as a compatibility mirror.
-        </p>
-        <p className="muted-row">
-          Authoritative Admin workbook:{" "}
-          <code>{controller.authoritativeAdminSpreadsheetId}</code>
+          {controller.membership?.lab.name} · Firestore records control access, roles,
+          readiness, and Task-log configuration.
         </p>
       </div>
       <div className="button-row">
@@ -118,7 +114,7 @@ function TeamSetupHeader({ controller }: { controller: TeamSetupController }) {
 }
 
 function TeamSetupStatus({ controller }: { controller: TeamSetupController }) {
-  const { actions, mirrorRetry } = controller;
+  const { actions } = controller;
   return (
     <>
       {controller.loading ? (
@@ -143,27 +139,6 @@ function TeamSetupStatus({ controller }: { controller: TeamSetupController }) {
             </button>
           ) : null}
         </StatusBanner>
-      ) : null}
-      {mirrorRetry ? (
-        <div className="callout callout--warning stack-xs" role="alert">
-          <strong>
-            {mirrorRetry.conflict ? "Sheets mirror conflict" : "Sheets mirror is stale"} for{" "}
-            {mirrorRetry.person.name}
-          </strong>
-          <p>
-            {mirrorRetry.conflict
-              ? "The backend change is authoritative, but the mirror row changed externally. Reload before reconciling it; an automatic retry would overwrite someone else’s edit."
-              : "The backend change is authoritative. Retrying is safe and only touches this member’s mirror rows."}
-          </p>
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled={controller.controlsDisabled}
-            onClick={actions.retryMirror}
-          >
-            {mirrorRetry.conflict ? "Reload records" : "Retry mirror"}
-          </button>
-        </div>
       ) : null}
     </>
   );

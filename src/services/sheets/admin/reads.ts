@@ -1,4 +1,3 @@
-import type { AppConfig } from "../../../domain/app";
 import { ADMIN_TAB_NAMES } from "../../../domain/app";
 import { getValuesForSheet } from "../client";
 import { extractIdFromUrl } from "../helpers";
@@ -12,11 +11,12 @@ import {
 import {
   ADMIN_REGISTRY_HEADERS,
   ADMIN_ROLES_HEADERS,
+  type AdminWorkbookConnection,
   type AdminWorkbookOverview
 } from "./types";
 
 export async function readAdminWorkbookOverview(
-  config: AppConfig,
+  config: AdminWorkbookConnection,
   accessToken: string
 ): Promise<AdminWorkbookOverview> {
   const spreadsheetId = extractIdFromUrl(config.adminSpreadsheetId);

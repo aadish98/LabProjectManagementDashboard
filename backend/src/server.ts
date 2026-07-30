@@ -2,7 +2,6 @@ import { GoogleAuth } from "google-auth-library";
 import { createApp } from "./app.js";
 import { GoogleIdentityVerifier } from "./auth/verifyGoogleIdentity.js";
 import { loadConfig } from "./config.js";
-import { GoogleSheetsEmptyRolesVerifier } from "./drive/bootstrapVerifier.js";
 import { GoogleDrivePermissionClient } from "./drive/googleDrive.js";
 import {
   createFirestore,
@@ -17,10 +16,8 @@ const applicationDefaultCredentials = new GoogleAuth({
 const app = createApp({
   repository: new FirestoreOnboardingRepository(firestore),
   identityVerifier: new GoogleIdentityVerifier(config.googleOAuthClientIds),
-  emptyRolesVerifier: new GoogleSheetsEmptyRolesVerifier(),
   drivePermissionClient: new GoogleDrivePermissionClient(),
   corsAllowedOrigins: config.corsAllowedOrigins,
-  bootstrapClaimTtlSeconds: config.bootstrapClaimTtlSeconds,
   readinessCheck: async () => {
     await applicationDefaultCredentials.getClient();
     await firestore.doc("_service/readiness").get();

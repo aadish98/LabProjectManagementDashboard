@@ -1,7 +1,7 @@
 {
   "name": "lab-workflow-desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cross-platform employee submission and manager dashboard for the lab workflow.",
   "type": "module",
   "scripts": {
@@ -9,11 +9,13 @@
     "build": "tauri build --config src-tauri/tauri.unsigned.conf.json",
     "tauri": "tauri",
     "web:dev": "vite",
+    "check:build-config": "node scripts/check-build-config.mjs",
     "check:fonts": "node scripts/check-fonts.mjs",
     "check:audit-structure": "node scripts/check-audit-structure.mjs",
     "check:token-hygiene": "node scripts/check-token-hygiene.mjs",
     "check:terminology": "node scripts/check-terminology.mjs",
     "frontend:build": "npm run check:fonts && npm run check:terminology && tsc && vite build && npm run check:token-hygiene",
+    "frontend:build:configured": "npm run check:build-config && npm run frontend:build",
     "pilot:inventory": "node scripts/pilot-migration-inventory.mjs",
     "preview": "vite preview",
     "test": "vitest run",

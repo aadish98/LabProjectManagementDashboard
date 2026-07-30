@@ -110,16 +110,7 @@ export function useAppController() {
   useEffect(() => {
     if (!activeMembership) return;
     setEmployeePrefs(membershipPrefs(activeMembership));
-    if (
-      activeMembership.lab.adminSpreadsheetId &&
-      activeMembership.lab.adminSpreadsheetId !== config.adminSpreadsheetId
-    ) {
-      setConfig({
-        ...config,
-        adminSpreadsheetId: activeMembership.lab.adminSpreadsheetId
-      });
-    }
-  }, [activeMembership, config, setConfig]);
+  }, [activeMembership]);
 
   const sessionEmailKey = session ? normalizeEmail(session.email) : "";
   const activeDataset =
@@ -194,7 +185,6 @@ export function useAppController() {
   const { loadManagerData, loadEmployeeData } = useDatasetSync({
     session,
     sessionEmailKey,
-    config,
     viewer,
     onboardingReady: activeMembership?.member.onboarding.status === "ready",
     activeLabId: activeMembership?.lab.id ?? null,
@@ -210,7 +200,6 @@ export function useAppController() {
     setDatasetScope,
     setLoading,
     setStatus,
-    setShowSetup,
     setEmployeeForceSetup,
     setManagerFileAccessIssue
   });
@@ -256,7 +245,6 @@ export function useAppController() {
 
   const taskMutations = useTaskMutations({
     session,
-    config,
     employeePrefs,
     employeeLabMember,
     managerRole,

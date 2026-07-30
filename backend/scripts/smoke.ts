@@ -41,7 +41,7 @@ async function main(): Promise<void> {
 }
 
 async function checkHealth(options: SmokeOptions, evidence: SmokeEvidence): Promise<void> {
-  const result = await requestJson(options, "/healthz");
+  const result = await requestJson(options, "/health");
   assertStatus(result, 200, "health");
   assertProtectionHeaders(result, "health");
   assert(

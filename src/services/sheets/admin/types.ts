@@ -9,6 +9,11 @@ export interface ParsedRegistry {
   problems: RegistryRowProblem[];
 }
 
+/** Legacy operator tooling only; never part of desktop runtime configuration. */
+export interface AdminWorkbookConnection {
+  adminSpreadsheetId: string;
+}
+
 export const ADMIN_REGISTRY_HEADERS: ReadonlyArray<string> = [
   "Lab Member",
   "Task Log URL",

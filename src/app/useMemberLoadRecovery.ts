@@ -231,10 +231,7 @@ export function useMemberLoadRecovery({
           await api.deactivateMember(activeLabId, current.id, current.revision);
         });
         const reason = `${issue.labMember} was deactivated in the authoritative backend.`;
-        invalidateDatasetCaches(
-          extractIdFromUrl(config.adminSpreadsheetId),
-          reason
-        );
+        invalidateDatasetCaches(activeLabId, reason);
         invalidateMemberConfigCache();
         await probeAdminAccess();
         const next = await loadManagerData();
@@ -253,7 +250,6 @@ export function useMemberLoadRecovery({
     [
       activeLabId,
       busyKey,
-      config.adminSpreadsheetId,
       invalidateMemberConfigCache,
       loadManagerData,
       probeAdminAccess,

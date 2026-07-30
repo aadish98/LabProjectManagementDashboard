@@ -25,7 +25,6 @@ const membership: Membership = {
   lab: {
     id: "lab",
     name: "Cell Lab",
-    adminSpreadsheetId: "admin",
     revision: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     createdBy: "owner",
@@ -56,11 +55,10 @@ const membership: Membership = {
 
 const initialProgress = {
   requiredFiles: [
-    { fileId: "admin", purpose: "adminWorkbook" as const, label: "Admin workbook" },
     { fileId: "task", purpose: "requiredTaskLog" as const, label: "Member Task-log workbook" }
   ],
   verifiedFileIds: [],
-  remainingFileIds: ["admin", "task"],
+  remainingFileIds: ["task"],
   complete: false,
   requiresColumnReview: false
 };
@@ -77,27 +75,17 @@ describe("ManagerFirstRun", () => {
 
   it("retains exact subset progress and retries with the new revision", async () => {
     const user = userEvent.setup();
-    picker
-      .mockResolvedValueOnce([{ id: "admin", name: "Admin", url: "admin" }])
-      .mockResolvedValueOnce([{ id: "task", name: "Task", url: "task" }]);
+    picker.mockResolvedValueOnce([{ id: "task", name: "Task", url: "task" }]);
     api.recordManagerFileProof
-      .mockResolvedValueOnce({
-        member: { ...membership.member, revision: 2 },
-        progress: {
-          ...initialProgress,
-          verifiedFileIds: ["admin"],
-          remainingFileIds: ["task"]
-        }
-      })
       .mockResolvedValueOnce({
         member: {
           ...membership.member,
-          revision: 3,
+          revision: 2,
           onboarding: { ...membership.member.onboarding, status: "ready" }
         },
         progress: {
           ...initialProgress,
-          verifiedFileIds: ["admin", "task"],
+          verifiedFileIds: ["task"],
           remainingFileIds: [],
           complete: true
         }
@@ -112,7 +100,6 @@ describe("ManagerFirstRun", () => {
           accessToken: "drive-token"
         }}
         config={{
-          adminSpreadsheetId: "admin",
           googleClientId: "client",
           googleApiKey: "key",
           googleAppId: "app"
@@ -126,14 +113,11 @@ describe("ManagerFirstRun", () => {
       />
     );
 
-    await screen.findByText(/0 verified · 2 remaining/i);
-    await user.click(screen.getByRole("button", { name: "Select remaining exact files" }));
-    expect(await screen.findByText(/1 verified · 1 remaining/i)).toBeInTheDocument();
+    await screen.findByText(/0 verified · 1 remaining/i);
     await user.click(screen.getByRole("button", { name: "Select remaining exact files" }));
 
-    await waitFor(() => expect(api.recordManagerFileProof).toHaveBeenCalledTimes(2));
-    expect(api.recordManagerFileProof.mock.calls[0].slice(2)).toEqual([1, ["admin"]]);
-    expect(api.recordManagerFileProof.mock.calls[1].slice(2)).toEqual([2, ["task"]]);
-    expect(onAccessChanged).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(api.recordManagerFileProof).toHaveBeenCalledTimes(1));
+    expect(api.recordManagerFileProof.mock.calls[0].slice(2)).toEqual([1, ["task"]]);
+    expect(onAccessChanged).toHaveBeenCalledTimes(1);
   });
 });

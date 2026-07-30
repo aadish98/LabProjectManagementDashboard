@@ -12,11 +12,11 @@ import { buildSnapshotFromExperiments } from "./ChangeLogPanel";
 
 export function useManagerRunSummary(
   sessionEmail: string,
-  adminSpreadsheetId: string,
+  labId: string,
   onRefresh: () => Promise<DashboardDataset | null>
 ) {
   const [previousSnapshot, setPreviousSnapshot] = useState<ManagerSnapshot | null>(() =>
-    adminSpreadsheetId ? readManagerSnapshot(sessionEmail, adminSpreadsheetId) : null
+    labId ? readManagerSnapshot(sessionEmail, labId) : null
   );
   const [lastRun, setLastRun] = useState<ManagerLastRun | null>(() =>
     readManagerLastRun(sessionEmail)
@@ -34,10 +34,10 @@ export function useManagerRunSummary(
     setLastRun(next);
     writeManagerLastRun(sessionEmail, next);
 
-    if (adminSpreadsheetId) {
+    if (labId) {
       const snapshot = buildSnapshotFromExperiments(refreshedDataset.experiments);
       setPreviousSnapshot(snapshot);
-      writeManagerSnapshot(sessionEmail, adminSpreadsheetId, snapshot);
+      writeManagerSnapshot(sessionEmail, labId, snapshot);
     }
   };
 

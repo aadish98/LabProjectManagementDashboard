@@ -2,18 +2,17 @@
 
 This directory is an isolated TypeScript service for Google Cloud Run. Firestore is authoritative for lab access, roles, invitations, onboarding state, shared task-log configuration, and append-only onboarding events. Google Sheets remains task storage and a later compatibility mirror; it is not an authorization source.
 
-The service does not persist or log Google OAuth tokens. Every authenticated `/v1` request uses a Google ID token in `Authorization: Bearer …`; `/healthz` and `/readyz` are intentionally unauthenticated. Operations that call Google Drive or verify the bootstrap workbook require a separate, short-lived token in `X-Google-Drive-Access-Token`.
+The service does not persist or log Google OAuth tokens. Every authenticated `/v1` request uses a Google ID token in `Authorization: Bearer …`; `/health` and `/readyz` are intentionally unauthenticated. Operations that provision Google Drive access require a separate, short-lived token in `X-Google-Drive-Access-Token`.
 
 ## Data model
 
 Firestore records use stable UUIDs and integer revisions:
 
-- `labs/{labId}` — immutable lab ID, display name, admin workbook ID, revision.
+- `labs/{labId}` — immutable lab ID, display name, operator-only admin workbook ID, revision. API membership responses omit the admin workbook ID.
 - `labs/{labId}/members/{memberId}` — normalized email, Firestore roles, active flag, revision, exact onboarding state.
 - `labs/{labId}/invitations/{invitationId}` — invitee email index, roles, expiry, acceptance/revocation status, revision.
 - `labs/{labId}/configs/{memberId}` — authoritative workbook ID, explicit tab, proposed/accepted shared column maps, sharing and Picker proof timestamps.
 - `labs/{labId}/events/{eventId}` — append-only actor, transition, revision, and timestamp audit events.
-- `bootstrapClaims/{claimId}` — short-lived proof that the claiming Google account successfully read an intentionally empty canonical `Roles` sheet.
 - lab/global `idempotency` documents — hashed request keys pointing to stable resource UUIDs.
 
 Invitation discovery uses a Firestore collection-group query on normalized email, pending status, and expiration. The required composite index is declared in `firestore.indexes.json` and created idempotently by `cloudbuild.yaml`.
@@ -34,12 +33,10 @@ The only normal progression is:
 
 All `/v1` routes require the Google ID token. Manager routes query the caller's active Firestore member record and require `manager` or `pi`; file access is never interpreted as authorization.
 
-- `GET /healthz` — process-only liveness; never checks Firestore.
+- `GET /health` — process-only liveness; never checks Firestore.
 - `GET /readyz` — readiness check that performs a Firestore read.
 - `GET /v1/me/invitations`
 - `GET /v1/me/memberships`
-- `POST /v1/labs/bootstrap`
-- `POST /v1/labs/bootstrap/:claimId/claim`
 - `GET|POST /v1/labs/:labId/members`
 - `GET|PATCH|DELETE /v1/labs/:labId/members/:memberId`
 - `PATCH /v1/labs/:labId/members/:memberId/setup`
@@ -55,7 +52,7 @@ All `/v1` routes require the Google ID token. Manager routes query the caller's 
 
 Creation routes require an `Idempotency-Key` header. PATCH/DELETE/status routes require the current revision and return `409 REVISION_CONFLICT` when stale.
 
-Drive provisioning derives the permitted file set from Firestore. Employees receive their configured task log. Manager/PI targets receive the admin workbook and every configured task log. The client cannot supply an arbitrary Drive file ID.
+Drive provisioning derives the permitted file set from Firestore. Employees receive their configured task log. Manager/PI targets receive only configured task logs required for their role. The Admin workbook is never included, and the client cannot supply an arbitrary Drive file ID.
 
 Errors have a stable shape:
 
@@ -94,7 +91,7 @@ export GOOGLE_CLOUD_PROJECT=lab-workflow-backend-test
 npm run test:emulator
 ```
 
-The emulator test clears only the configured emulator project, then verifies transactional lab claim, stable UUIDs, invitation idempotency, and normalized-email discovery. It is skipped during the normal unit test command when `FIRESTORE_EMULATOR_HOST` is absent.
+The emulator test clears only the configured emulator project, seeds the same lab/member documents produced by the operator importer, then verifies invitation idempotency and normalized-email discovery. It is skipped during the normal unit test command when `FIRESTORE_EMULATOR_HOST` is absent.
 
 ## Production deployment
 
@@ -105,7 +102,7 @@ Deployment is split into auditable components:
 - `scripts/deploy.sh` performs fail-closed local/CI preflight checks. Its default `--check` mode never submits a build; only `--deploy` mutates Google Cloud.
 - `.github/workflows/deploy-backend.yml` validates TypeScript, tests, builds the container, then authenticates through GitHub OIDC and Google Workload Identity Federation. It does not accept or reference a service-account JSON key.
 
-The Cloud Run service is network-public because the Tauri client presents a Google OAuth ID token, not a Cloud Run IAM token. Application middleware verifies every `/v1` request against the configured OAuth audiences. Only `/healthz` and `/readyz` are intentionally unauthenticated. If organizational policy requires Cloud Run IAM, place a trusted gateway in front and change the ingress/authentication design before deployment.
+The Cloud Run service is network-public because the Tauri client presents a Google OAuth ID token, not a Cloud Run IAM token. Application middleware verifies every `/v1` request against the configured OAuth audiences. Only `/health` and `/readyz` are intentionally unauthenticated. If organizational policy requires Cloud Run IAM, place a trusted gateway in front and change the ingress/authentication design before deployment.
 
 ### Required Google Cloud resources
 
@@ -132,14 +129,12 @@ export CLOUD_BUILD_SERVICE_ACCOUNT=lab-workflow-builder@your-project-id.iam.gser
 export ARTIFACT_REGISTRY_REPOSITORY=cloud-run
 export FIRESTORE_DATABASE_ID='(default)'
 export GOOGLE_OAUTH_CLIENT_IDS='000000000000-example.apps.googleusercontent.com'
-export CORS_ALLOWED_ORIGINS='tauri://localhost,http://tauri.localhost'
-export BOOTSTRAP_CLAIM_TTL_SECONDS=600
-
+export CORS_ALLOWED_ORIGINS='tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173'
 backend/scripts/deploy.sh --check
 backend/scripts/deploy.sh --deploy
 ```
 
-Preflight verifies gcloud installation and authentication, project and region, both project-owned service accounts, the Firestore database, Artifact Registry, all required APIs, OAuth audience syntax, exact CORS origins, TTL bounds, and required deployment files. Cloud Build then waits for the Firestore index and no-traffic candidate smoke checks before changing production traffic.
+Preflight verifies gcloud installation and authentication, project and region, both project-owned service accounts, the Firestore database, Artifact Registry, all required APIs, OAuth audience syntax, exact CORS origins, and required deployment files. Cloud Build then waits for the Firestore index and no-traffic candidate smoke checks before changing production traffic.
 
 ### Keyless GitHub deployment
 
@@ -158,20 +153,19 @@ Configure the protected GitHub environment `backend-production` with required re
 - `FIRESTORE_DATABASE_ID`
 - `GOOGLE_OAUTH_CLIENT_IDS`
 - `CORS_ALLOWED_ORIGINS`
-- `BOOTSTRAP_CLAIM_TTL_SECONDS`
 
 These values are identifiers/configuration, not service-account JSON secrets. The manual workflow requires the operator to type the exact protected project ID and explicitly enable deployment.
 
 ## Health, readiness, and smoke checks
 
-Cloud Run startup and liveness probes call `/healthz`. That endpoint reports only whether the HTTP process is alive, so a temporary Firestore outage does not cause a destructive restart loop.
+Cloud Run startup and liveness probes call `/health`. That endpoint reports only whether the HTTP process is alive, so a temporary Firestore outage does not cause a destructive restart loop.
 
 `/readyz` performs a Firestore document read using the runtime identity. It returns `200` only when the authoritative store is reachable and returns typed `503 SERVICE_NOT_READY` for a missing database, wrong project, unavailable service, or insufficient runtime IAM.
 
 Cloud Build retrieves the deployed service URL and retries both checks. It also requires an unauthenticated discovery request to return `401 ID_TOKEN_REQUIRED` with `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and an `X-Request-Id`, both before and after traffic promotion.
 
 ```sh
-curl --fail --retry 10 https://SERVICE_URL/healthz
+curl --fail --retry 10 https://SERVICE_URL/health
 curl --fail --retry 10 https://SERVICE_URL/readyz
 ```
 
@@ -248,16 +242,19 @@ docker run --rm --publish 8080:8080 \
   --env GOOGLE_CLOUD_PROJECT=your-project-id \
   --env GOOGLE_OAUTH_CLIENT_IDS=000000000000-example.apps.googleusercontent.com \
   lab-workflow-backend:local
-curl --fail http://127.0.0.1:8080/healthz
+curl --fail http://127.0.0.1:8080/health
 ```
 
-`/readyz` intentionally returns `503` until the container has valid Application Default Credentials or a configured Firestore emulator. The image also declares a process-only Docker `HEALTHCHECK` against `/healthz`.
+`/readyz` intentionally returns `503` until the container has valid Application Default Credentials or a configured Firestore emulator. The image also declares a process-only Docker `HEALTHCHECK` against `/health`.
 
 No deployment has been performed by this repository work.
 
-## Bootstrap safety
+## Operator roster import
 
-`POST /v1/labs/bootstrap` uses the delegated token only to read the canonical `Roles` range and requires exact `Email`, `Role`, `Lab Member` headers with no non-empty data rows. It returns a short-lived claim without storing the token. `POST /v1/labs/bootstrap/:claimId/claim` transactionally creates the lab and owner member as manager/PI. A non-empty or unreadable Roles sheet cannot create bootstrap privilege.
+The desktop API has no lab-bootstrap endpoint. An operator runs
+`npm run roster:import -- …` to read the canonical `Roles` and `SheetRegistry`
+tabs, preview the changes, and explicitly apply an atomic Firestore import. The
+Admin workbook and its ID are not returned to employees, managers, or PIs.
 
 ## Operational notes
 

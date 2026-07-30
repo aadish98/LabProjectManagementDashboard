@@ -1,4 +1,4 @@
-import type { AppConfig, UserSession } from "../../../domain/app";
+import type { UserSession } from "../../../domain/app";
 import { ADMIN_TAB_NAMES } from "../../../domain/app";
 import { GoogleSheetsAuthError } from "../errors";
 import { extractIdFromUrl } from "../helpers";
@@ -11,6 +11,7 @@ import { ensureCanonicalHeaders, resolveAdminTab } from "./tabs";
 import {
   ADMIN_REGISTRY_HEADERS,
   ADMIN_ROLES_HEADERS,
+  type AdminWorkbookConnection,
   type MemberCompatibilityMirrorUpdate,
   type MemberRoleMirrorUpdate,
   type RegistryWriteRow,
@@ -18,7 +19,7 @@ import {
 } from "./types";
 
 export async function writeRegistryRows(
-  config: AppConfig,
+  config: AdminWorkbookConnection,
   session: UserSession,
   rows: RegistryWriteRow[]
 ): Promise<void> {
@@ -26,7 +27,7 @@ export async function writeRegistryRows(
 }
 
 export async function upsertRegistryRow(
-  config: AppConfig,
+  config: AdminWorkbookConnection,
   session: UserSession,
   row: RegistryWriteRow
 ): Promise<void> {
@@ -68,7 +69,7 @@ export async function upsertRegistryRow(
 }
 
 export async function writeRolesRows(
-  config: AppConfig,
+  config: AdminWorkbookConnection,
   session: UserSession,
   rows: RoleWriteRow[]
 ): Promise<void> {
@@ -99,7 +100,7 @@ export async function writeRolesRows(
  * backend revision is idempotent.
  */
 export async function mirrorMemberCompatibilityRows(
-  config: AppConfig,
+  config: AdminWorkbookConnection,
   session: UserSession,
   update: MemberCompatibilityMirrorUpdate
 ): Promise<void> {
@@ -183,7 +184,7 @@ export async function mirrorMemberCompatibilityRows(
 }
 
 export async function syncMemberRoleRows(
-  config: AppConfig,
+  config: AdminWorkbookConnection,
   session: UserSession,
   update: MemberRoleMirrorUpdate
 ): Promise<void> {

@@ -152,8 +152,8 @@ export async function writeStoredSessionSecurely(session: UserSession | null): P
   writeJson(SESSION_KEY, sessionMetadata(session));
 }
 
-export function getDatasetCacheKey(adminSpreadsheetId: string): string {
-  return `lab-workflow/dataset-cache/${adminSpreadsheetId}`;
+export function getDatasetCacheKey(labScopeId: string): string {
+  return `lab-workflow/dataset-cache/${labScopeId}`;
 }
 
 export const DATASET_CACHE_VERSION = 2;
@@ -174,11 +174,11 @@ export function writeDatasetCache(key: string, dataset: DashboardDataset): void 
 }
 
 export function invalidateDatasetCaches(
-  adminSpreadsheetId: string,
+  labScopeId: string,
   reason: string
 ): void {
-  if (!adminSpreadsheetId.trim()) return;
-  const prefix = getDatasetCacheKey(adminSpreadsheetId);
+  if (!labScopeId.trim()) return;
+  const prefix = getDatasetCacheKey(labScopeId);
   const invalidatedAt = new Date().toISOString();
   for (let index = 0; index < window.localStorage.length; index++) {
     const key = window.localStorage.key(index);

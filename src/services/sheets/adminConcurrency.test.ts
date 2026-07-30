@@ -1,14 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AppConfig, UserSession } from "../../domain/app";
+import type { UserSession } from "../../domain/app";
 import { mirrorMemberCompatibilityRows, upsertRegistryRow } from "./admin";
 import { SheetRevisionConflictError } from "./errors";
 
-const config: AppConfig = {
-  adminSpreadsheetId: "admin",
-  googleClientId: "",
-  googleApiKey: "",
-  googleAppId: ""
-};
+const config = { adminSpreadsheetId: "admin" };
 const session: UserSession = {
   email: "manager@example.com",
   name: "Manager",

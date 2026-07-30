@@ -142,7 +142,6 @@ describe("TeamSetupPanel", () => {
     render(
       <TeamSetupPanel
         config={{
-          adminSpreadsheetId: "admin",
           googleClientId: "client",
           googleApiKey: "key",
           googleAppId: "app"
@@ -177,7 +176,6 @@ describe("TeamSetupPanel", () => {
           lab: {
             id: "lab",
             name: "Lab",
-            adminSpreadsheetId: "admin",
             revision: 1,
             createdAt: "2026-01-01T00:00:00.000Z",
             createdBy: "manager",
@@ -244,12 +242,7 @@ describe("TeamSetupPanel", () => {
       experiment: { mode: "existing", header: "Experiment" },
       status: { mode: "add", header: "Status" }
     });
-    await waitFor(() =>
-      expect(sheetsMocks.mirrorMemberCompatibilityRows).toHaveBeenCalledOnce()
-    );
-    expect(apiMocks.createInvitation.mock.invocationCallOrder[0]).toBeLessThan(
-      sheetsMocks.mirrorMemberCompatibilityRows.mock.invocationCallOrder[0]!
-    );
+    expect(sheetsMocks.mirrorMemberCompatibilityRows).not.toHaveBeenCalled();
   });
 
   it("reactivates a confirmed deactivation using the returned backend revision", async () => {
@@ -317,7 +310,6 @@ function renderPanel() {
   return render(
     <TeamSetupPanel
       config={{
-        adminSpreadsheetId: "stale-local-admin",
         googleClientId: "client",
         googleApiKey: "key",
         googleAppId: "app"
@@ -352,7 +344,6 @@ function renderPanel() {
         lab: {
           id: "lab",
           name: "Lab",
-          adminSpreadsheetId: "admin",
           revision: 1,
           createdAt: "2026-01-01T00:00:00.000Z",
           createdBy: "manager",

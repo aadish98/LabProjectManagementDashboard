@@ -11,7 +11,7 @@
 ## 2. Deploy the Backend
 Run `backend/scripts/deploy.sh --check` first. It is a non-mutating preflight for the project, APIs, service accounts, Firestore database, Artifact Registry, OAuth audiences, CORS origins, indexes, and deployment files. Only an explicitly approved `--deploy` invocation submits Cloud Build.
 
-The Cloud Run runtime service account needs Firestore access but must not receive Drive access. Every `/v1` request verifies a Google ID token; Drive/bootstrap operations receive the signed-in operator's short-lived Drive token in a separate request header and discard it after the operation. Tokens must never enter Firestore, environment variables, logs, or errors.
+The Cloud Run runtime service account needs Firestore access but must not receive Drive access. Every `/v1` request verifies a Google ID token. Drive provisioning receives the signed-in manager/PI's short-lived Drive token in a separate request header and discards it after the operation. Tokens must never enter Firestore, environment variables, logs, or errors.
 
 No repository command or document proves that a production deployment has occurred. Record the approved project, Cloud Run revision, Firestore database, index state, and smoke-check evidence separately during release.
 
@@ -24,10 +24,10 @@ VITE_GOOGLE_CLIENT_ID=
 VITE_GOOGLE_CLIENT_SECRET=
 VITE_GOOGLE_API_KEY=
 VITE_GOOGLE_APP_ID=
-VITE_ADMIN_SPREADSHEET_ID=
 ```
 
-`VITE_ADMIN_SPREADSHEET_ID` can be a Google Sheet URL or ID. It is the canonical workflow/compatibility workbook; Firestore is authoritative for membership, roles, invitations, onboarding state, stable IDs, and shared maps.
+The Admin workbook ID is intentionally not embedded in or returned to the
+distributed app. Desktop membership and role checks use Firestore only.
 
 ## 4. Updater signing keypair (one-time)
 In-app auto-update uses Tauri’s free minisign key. Generate the keypair on a trusted machine; never commit the private key.
@@ -71,16 +71,25 @@ VAULT_VERIFY_BINARY="/absolute/path/to/tauri-executable" \
 
 It creates a unique disposable account label/value in Rust, verifies store/load, and requires deletion before success. It does not expose the value and does not run during normal startup. This one round trip is not signed-package acceptance evidence by itself.
 
-## 6. Bootstrap and Authoritative Onboarding
-Create the canonical workbook with exact empty `Roles` headers and share it with the founding operator. Bootstrap requires a short-lived backend claim proving that account can read the intentionally empty sheet; file readability anywhere else never grants a role.
+## 6. Import the Authoritative Roster
+Create the canonical workbook with `Roles` and `SheetRegistry`, and share it only
+with operator accounts that run the import. Authenticate Application Default
+Credentials using the scopes printed by:
 
-After claiming the lab, use Firestore-backed Team setup:
+```bash
+npm --prefix backend run roster:import -- --help
+```
 
-1. Create an invitation with roles, exact workbook ID, active tab, and proposed shared column map.
-2. The matching Google account accepts it.
-3. A Firestore-authorized manager/PI provisions the exact Drive files.
-4. The member selects the configured file through Picker.
-5. The member accepts the shared column map; status becomes `ready`.
+Preview the import first, then repeat the reviewed command with `--apply`. The
+import creates the Firestore lab, active member, task-log config, and audit
+documents. It does not deactivate Firestore members that are absent from the
+sheet.
+
+After import:
+
+1. A Firestore-authorized manager/PI provisions the exact Drive files.
+2. The member selects only their configured task-log file through Picker.
+3. The member accepts the shared column map; status becomes `ready`.
 
 Compatibility `SheetRegistry`/`Roles` rows carry immutable member IDs and revisions. They are mirrors, not authorization inputs.
 
@@ -88,8 +97,8 @@ Compatibility `SheetRegistry`/`Roles` rows carry immutable member IDs and revisi
 Google Drive sharing and Picker selection are both required.
 
 - Employees need access only to their own task-log Sheet.
-- Managers need access to the admin workbook and active employee task logs.
-- PIs need access to the admin workbook and all active task logs.
+- Managers need access only to the configured task logs required for their role.
+- PIs need access only to the configured task logs required for their role.
 
 When prompted, use **Grant task-log access** to select missing Sheets through Google Picker.
 

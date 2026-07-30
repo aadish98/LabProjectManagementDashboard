@@ -1,12 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { AppConfig, UserSession } from "../../domain/app";
+import type { UserSession } from "../../domain/app";
 import type { Invitation, Member, MemberConfig, Membership } from "../../domain/onboarding";
 import { invalidateDatasetCaches } from "../../services/cache";
-import { mirrorMemberCompatibilityRows } from "../../services/sheets/admin";
-import {
-  sheetsErrorMessage,
-  SheetRevisionConflictError
-} from "../../services/sheets/errors";
 import { extractIdFromUrl } from "../../services/sheets/helpers";
 import { analyzeEmployeeSheetHeaders } from "../../services/sheets/metadata";
 import { OnboardingApi } from "../../services/onboardingApi";
@@ -17,99 +12,40 @@ import {
   personFromRecords
 } from "./teamSetupRecords";
 import {
-  splitForSave,
   type PeopleValidation,
   type PersonDraft
 } from "./teamSetupState";
 
-export interface MirrorRetry {
-  person: PersonDraft;
-  revision: number;
-  deactivate: boolean;
-  conflict: boolean;
-}
-
 interface TeamMemberActionsOptions {
-  config: AppConfig;
   session: UserSession;
   membership: Membership | null;
-  authoritativeAdminSpreadsheetId: string;
   validation: PeopleValidation;
   undoDeactivation: PersonDraft | null;
-  mirrorRetry: MirrorRetry | null;
   setPeople: Dispatch<SetStateAction<PersonDraft[]>>;
   setSavedPeople: Dispatch<SetStateAction<PersonDraft[]>>;
   setSavingPersonId: Dispatch<SetStateAction<string | null>>;
   setPendingRemovalId: Dispatch<SetStateAction<string | null>>;
   setUndoDeactivation: Dispatch<SetStateAction<PersonDraft | null>>;
-  setMirrorRetry: Dispatch<SetStateAction<MirrorRetry | null>>;
   setError: Dispatch<SetStateAction<string>>;
   setNotice: Dispatch<SetStateAction<string>>;
-  reloadPeople: () => Promise<void>;
   onSaved: () => Promise<void>;
 }
 
 export function useTeamMemberActions(options: TeamMemberActionsOptions) {
   const {
-    config,
     session,
     membership,
-    authoritativeAdminSpreadsheetId,
     validation,
     undoDeactivation,
-    mirrorRetry,
     setPeople,
     setSavedPeople,
     setSavingPersonId,
     setPendingRemovalId,
     setUndoDeactivation,
-    setMirrorRetry,
     setError,
     setNotice,
-    reloadPeople,
     onSaved
   } = options;
-
-  const mirrorCompatibility = async (
-    person: PersonDraft,
-    revision: number,
-    deactivate = false
-  ) => {
-    if (!session.accessToken || !authoritativeAdminSpreadsheetId) return "";
-    const { registryRows, roleRows } = splitForSave([person]);
-    const registryRow = registryRows[0];
-    try {
-      await mirrorMemberCompatibilityRows(
-        { ...config, adminSpreadsheetId: authoritativeAdminSpreadsheetId },
-        session,
-        {
-          memberId: person.id,
-          revision,
-          ...(registryRow
-            ? {
-                registry: {
-                  ...registryRow,
-                  active: deactivate ? false : registryRow.active
-                }
-              }
-            : {}),
-          roles: deactivate ? [] : roleRows
-        }
-      );
-      setMirrorRetry(null);
-      return "";
-    } catch (mirrorError) {
-      const conflict = mirrorError instanceof SheetRevisionConflictError;
-      setMirrorRetry({ person, revision, deactivate, conflict });
-      return ` The authoritative backend update succeeded, but the compatibility Sheets mirror ${
-        conflict ? "has a revision conflict" : "needs retry"
-      }: ${sheetsErrorMessage(mirrorError)}${
-        conflict
-          ? " Reload and reconcile the externally changed mirror row before retrying."
-          : ""
-      }`;
-    }
-  };
 
   const savePerson = async (person: PersonDraft) => {
     if (!membership || !session.idToken) {
@@ -217,12 +153,11 @@ export function useTeamMemberActions(options: TeamMemberActionsOptions) {
         saved
       ]);
       invalidateDatasetCaches(
-        authoritativeAdminSpreadsheetId,
+        membership.lab.id,
         `Team configuration changed for ${saved.name}.`
       );
-      const mirrorWarning = await mirrorCompatibility(saved, member.revision);
       setNotice(
-        `Authoritative onboarding record updated. Current readiness: ${member.onboarding.status}.${mirrorWarning}`
+        `Authoritative onboarding record updated. Current readiness: ${member.onboarding.status}.`
       );
       await onSaved();
     } catch (saveError) {
@@ -266,16 +201,11 @@ export function useTeamMemberActions(options: TeamMemberActionsOptions) {
       replacePerson(setPeople, person.id, deactivated);
       replacePerson(setSavedPeople, person.id, deactivated);
       invalidateDatasetCaches(
-        authoritativeAdminSpreadsheetId,
+        membership.lab.id,
         `${person.name} was deactivated.`
       );
-      const mirrorWarning = await mirrorCompatibility(
-        deactivated,
-        result.member.revision,
-        true
-      );
       setNotice(
-        `${person.name} was deactivated in the authoritative backend.${mirrorWarning}`
+        `${person.name} was deactivated in the authoritative backend.`
       );
       setUndoDeactivation(deactivated);
       await onSaved();
@@ -305,15 +235,11 @@ export function useTeamMemberActions(options: TeamMemberActionsOptions) {
       replacePerson(setSavedPeople, person.id, reactivated);
       setUndoDeactivation(null);
       invalidateDatasetCaches(
-        authoritativeAdminSpreadsheetId,
+        membership.lab.id,
         `${person.name} was reactivated.`
       );
-      const mirrorWarning = await mirrorCompatibility(
-        reactivated,
-        result.member.revision
-      );
       setNotice(
-        `${person.name} was reactivated in the authoritative backend.${mirrorWarning}`
+        `${person.name} was reactivated in the authoritative backend.`
       );
       await onSaved();
     } catch (undoError) {
@@ -360,28 +286,11 @@ export function useTeamMemberActions(options: TeamMemberActionsOptions) {
     }
   };
 
-  const retryMirror = () => {
-    if (!mirrorRetry) return;
-    if (mirrorRetry.conflict) {
-      setMirrorRetry(null);
-      void reloadPeople();
-      return;
-    }
-    void mirrorCompatibility(
-      mirrorRetry.person,
-      mirrorRetry.revision,
-      mirrorRetry.deactivate
-    ).then((warning) =>
-      setNotice(warning ? warning.trim() : "Compatibility Sheets mirror is current.")
-    );
-  };
-
   return {
     savePerson,
     confirmRemoval,
     undoMemberDeactivation,
-    provision,
-    retryMirror
+    provision
   };
 }
 

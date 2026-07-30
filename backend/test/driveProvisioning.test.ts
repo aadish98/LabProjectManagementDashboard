@@ -54,7 +54,6 @@ describe("Drive provisioning resources", () => {
 
     expect(
       buildDriveProvisioningResources(
-        lab,
         target,
         config(target.id, "employee-log"),
         [target, member("other", ["employee"])],
@@ -70,7 +69,6 @@ describe("Drive provisioning resources", () => {
 
     expect(
       buildDriveProvisioningResources(
-        lab,
         target,
         config(target.id, "manager-log"),
         [target, active, inactive],
@@ -83,7 +81,6 @@ describe("Drive provisioning resources", () => {
       )
     ).toEqual([
       { fileId: "manager-log", purpose: "taskLog" },
-      { fileId: "admin-workbook", purpose: "adminWorkbook" },
       { fileId: "active-log", purpose: "requiredTaskLog" }
     ]);
   });
@@ -94,7 +91,6 @@ describe("Drive provisioning resources", () => {
 
     expect(
       buildDriveProvisioningResources(
-        { ...lab, adminSpreadsheetId: "shared-file" },
         target,
         config(target.id, "shared-file"),
         [target, colleague],

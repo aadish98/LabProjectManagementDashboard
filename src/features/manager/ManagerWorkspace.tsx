@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AppConfig, EmployeeSheetPrefs, UserSession } from "../../domain/app";
+import type { EmployeeSheetPrefs, UserSession } from "../../domain/app";
 import type {
   DashboardDataset,
   ExperimentDraft,
@@ -9,7 +9,6 @@ import type {
 } from "../../domain/experiment";
 import { formatDateLabel } from "../../utils/date";
 import { readManagerScopeMode, writeManagerScopeMode } from "../../services/cache";
-import { extractIdFromUrl } from "../../services/sheets/helpers";
 import { GanttView } from "../gantt/GanttView";
 import { SegmentedControl, SyncStatus } from "../../components/ui";
 import {
@@ -39,8 +38,8 @@ type WorkspaceView = "kanban" | "gantt";
 
 interface ManagerWorkspaceProps {
   session: UserSession;
+  labId: string;
   viewerRole: "manager" | "pi";
-  config: AppConfig;
   dataset: DashboardDataset;
   visibleLabMembers: string[];
   managerOwnLabMember: string | null;
@@ -67,8 +66,8 @@ interface ManagerWorkspaceProps {
 
 export function ManagerWorkspace({
   session,
+  labId,
   viewerRole,
-  config,
   dataset,
   visibleLabMembers,
   managerOwnLabMember,
@@ -92,7 +91,6 @@ export function ManagerWorkspace({
   onResolveOwnOverdue,
   reconnecting
 }: ManagerWorkspaceProps) {
-  const adminSpreadsheetId = extractIdFromUrl(config.adminSpreadsheetId);
   const [scopeMode, setScopeMode] = useState(
     () => readManagerScopeMode(session.email) ?? "team"
   );
@@ -100,7 +98,7 @@ export function ManagerWorkspace({
   const [editingTask, setEditingTask] = useState<ExperimentRecord | null>(null);
   const [view, setView] = useState<WorkspaceView>("kanban");
   const dashboard = useManagerDashboard(session.email, dataset, visibleLabMembers);
-  const runSummary = useManagerRunSummary(session.email, adminSpreadsheetId, onRefresh);
+  const runSummary = useManagerRunSummary(session.email, labId, onRefresh);
 
   const canUseMyTasks = !!managerOwnLabMember && !!managerOwnPrefs;
   const primaryScopeLabel = viewerRole === "pi" ? "PI view" : "Manager view";

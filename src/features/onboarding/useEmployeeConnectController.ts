@@ -266,7 +266,7 @@ export function useEmployeeConnectController({
         );
         setCurrent({ ...current, member: changed.member, config: changed.config });
         invalidateDatasetCaches(
-          extractIdFromUrl(current.lab.adminSpreadsheetId),
+          current.lab.id,
           `Task-log mapping changed for ${current.member.displayName}.`
         );
         setNotice(
@@ -319,7 +319,7 @@ export function useEmployeeConnectController({
       };
       setCurrent({ ...current, member: result.member, config: result.config });
       invalidateDatasetCaches(
-        extractIdFromUrl(current.lab.adminSpreadsheetId),
+        current.lab.id,
         `Column mapping changed for ${current.member.displayName}.`
       );
       onValidated(prefs);

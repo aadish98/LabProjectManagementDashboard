@@ -32,7 +32,6 @@ const membership = {
   lab: {
     id: "lab",
     name: "Cell Lab",
-    adminSpreadsheetId: "admin",
     revision: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     createdBy: "subject",

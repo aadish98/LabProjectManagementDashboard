@@ -48,7 +48,7 @@ The application's use and transfer of information received from Google APIs adhe
 
 ## Data Retention and Deletion
 
-Workflow data in Google Sheets can be deleted or modified directly in the relevant spreadsheet. Firestore application records and account metadata are retained while the account or lab uses the service; most records do not have an automatic expiry. Invitations and bootstrap claims have application expiry fields, but cleanup/retention must still be operated and verified.
+Workflow data in Google Sheets can be deleted or modified directly in the relevant spreadsheet. Firestore application records and account metadata are retained while the account or lab uses the service; most records do not have an automatic expiry. Invitations have application expiry fields, but cleanup/retention must still be operated and verified.
 
 The current application supports member deactivation and invitation revocation, not a self-service hard-delete endpoint for an entire account or lab. An authorized deletion request therefore requires a controlled operator procedure to remove the relevant Firestore records and verify the result. This is an external/manual release obligation and must not be represented as automatic deletion.
 

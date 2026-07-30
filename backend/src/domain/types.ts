@@ -62,7 +62,7 @@ export interface ManagerFileProofRecord {
 
 export interface ManagerRequiredFile {
   fileId: string;
-  purpose: "adminWorkbook" | "requiredTaskLog";
+  purpose: "requiredTaskLog";
   label: string;
   memberId?: string;
   activeSheetName?: string;
@@ -138,19 +138,6 @@ export interface OnboardingEvent {
   metadata?: Record<string, string | number | boolean | null>;
 }
 
-export interface BootstrapClaim {
-  id: string;
-  ownerSubject: string;
-  ownerEmail: string;
-  ownerName: string;
-  labName: string;
-  adminSpreadsheetId: string;
-  expiresAt: string;
-  createdAt: string;
-  claimedAt?: string;
-  labId?: string;
-}
-
 export interface InvitationInput {
   email: string;
   displayName: string;
@@ -188,7 +175,7 @@ export interface MemberConfigPatch {
 
 export interface DriveResource {
   fileId: string;
-  purpose: "taskLog" | "adminWorkbook" | "requiredTaskLog";
+  purpose: "taskLog" | "requiredTaskLog";
 }
 
 export interface DriveProvisioningContext {

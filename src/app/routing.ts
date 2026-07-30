@@ -4,7 +4,6 @@ import type { OnboardingStatus } from "../domain/onboarding";
 export type AppRoute =
   | "signedOut"
   | "accessCheck"
-  | "bootstrap"
   | "unauthorized"
   | "employeeSetup"
   | "employeeWorkspace"
@@ -17,7 +16,6 @@ export interface AppRouteInput {
   hasEmployeePrefs: boolean;
   employeeForceSetup: boolean;
   onboardingStatus: OnboardingStatus | null;
-  canBootstrap: boolean;
 }
 
 export function selectAppRoute({
@@ -25,12 +23,10 @@ export function selectAppRoute({
   viewerRole,
   hasEmployeePrefs,
   employeeForceSetup,
-  onboardingStatus,
-  canBootstrap
+  onboardingStatus
 }: AppRouteInput): AppRoute {
   if (!hasSession) return "signedOut";
   if (viewerRole === "guest") return "accessCheck";
-  if (canBootstrap) return "bootstrap";
   if (viewerRole === "unauthorized") return "unauthorized";
   if (viewerRole === "employee") {
     if (onboardingStatus !== "ready") return "employeeSetup";

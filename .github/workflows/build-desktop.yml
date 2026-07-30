@@ -22,7 +22,6 @@ jobs:
       VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.VITE_GOOGLE_CLIENT_SECRET }}
       VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY || secrets.VITE_GOOGLE_API_KEY }}
       VITE_GOOGLE_APP_ID: ${{ vars.VITE_GOOGLE_APP_ID || secrets.VITE_GOOGLE_APP_ID }}
-      VITE_ADMIN_SPREADSHEET_ID: ${{ vars.VITE_ADMIN_SPREADSHEET_ID || secrets.VITE_ADMIN_SPREADSHEET_ID }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     strategy:
@@ -60,8 +59,7 @@ jobs:
             "VITE_GOOGLE_CLIENT_ID",
             "VITE_GOOGLE_CLIENT_SECRET",
             "VITE_GOOGLE_API_KEY",
-            "VITE_GOOGLE_APP_ID",
-            "VITE_ADMIN_SPREADSHEET_ID"
+            "VITE_GOOGLE_APP_ID"
           ];
           const missing = required.filter((name) => !process.env[name]?.trim());
           if (missing.length) {

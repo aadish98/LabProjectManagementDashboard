@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AppConfig, EmployeeSheetPrefs, UserSession } from "../../domain/app";
+import type { EmployeeSheetPrefs, UserSession } from "../../domain/app";
 import type { ExperimentDraft } from "../../domain/experiment";
 import type { Membership } from "../../domain/onboarding";
 import { loadGoogleSheetsDataset, mergeLastKnownExperiments } from "./dataset";
@@ -19,13 +19,6 @@ const session: UserSession = {
   email: "manager@example.com",
   name: "Manager",
   accessToken: "token"
-};
-
-const config: AppConfig = {
-  adminSpreadsheetId: "admin",
-  googleClientId: "",
-  googleApiKey: "",
-  googleAppId: ""
 };
 
 const prefs: EmployeeSheetPrefs = {
@@ -197,7 +190,8 @@ describe("partial manager dataset loading", () => {
     );
 
     await expect(
-      loadGoogleSheetsDataset(config, session, {
+      loadGoogleSheetsDataset(session, {
+        labId: "lab",
         viewerRole: "manager",
         authoritativeMembers: []
       })
@@ -272,7 +266,8 @@ describe("partial manager dataset loading", () => {
       })
     );
 
-    const dataset = await loadGoogleSheetsDataset(config, session, {
+    const dataset = await loadGoogleSheetsDataset(session, {
+      labId: "lab",
       viewerRole: "manager",
       authoritativeMembers: [
         authoritativeMember("member_ada", "Ada", "accessible", {

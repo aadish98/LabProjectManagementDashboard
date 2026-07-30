@@ -68,7 +68,7 @@ On macOS, Windows, and supported Linux:
 1. Export only the intended project/resource identifiers documented in `backend/README.md`.
 2. Run `backend/scripts/deploy.sh --check`. PR CI sets `DEPLOY_PREFLIGHT_OFFLINE=1` to validate artifacts and configuration syntax without cloud credentials; omit it for authenticated cloud-resource checks.
 3. Review every resolved project, region, service account, OAuth audience, and CORS origin.
-4. Build the container locally and call `/healthz`.
+4. Build the container locally and call `/health`.
 5. Use the Firestore emulator for authenticated lifecycle tests where possible.
 6. Record missing IAM, indexes, signing, OAuth verification, and real-account tests as blockers.
 

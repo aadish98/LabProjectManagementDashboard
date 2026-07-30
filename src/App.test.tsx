@@ -17,7 +17,6 @@ vi.mock("./services/cache", async (importOriginal) => {
   return {
     ...original,
     readStoredConfig: () => ({
-      adminSpreadsheetId: "https://docs.google.com/spreadsheets/d/admin-sheet/edit",
       googleClientId: "client",
       googleApiKey: "key",
       googleAppId: "app"
@@ -33,6 +32,11 @@ vi.mock("./auth/googleIdentity", () => ({
   getFreshSession: vi.fn().mockResolvedValue(session),
   revokeGoogleSession: vi.fn().mockResolvedValue(undefined),
   signInWithGoogle: vi.fn()
+}));
+
+vi.mock("./services/onboardingApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./services/onboardingApi")>()),
+  BACKEND_BASE_URL: ""
 }));
 
 beforeEach(() => {

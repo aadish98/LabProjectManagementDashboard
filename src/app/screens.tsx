@@ -5,7 +5,6 @@ import { UnauthorizedScreen } from "../components/UnauthorizedScreen";
 import { Dialog, StatusBanner as UiStatusBanner } from "../components/ui";
 import { EmployeeWorkspace } from "../features/employee/EmployeeWorkspace";
 import { ManagerWorkspace } from "../features/manager/ManagerWorkspace";
-import { BootstrapLab } from "../features/onboarding/BootstrapLab";
 import { EmployeeConnectFlow } from "../features/onboarding/EmployeeSetupGate";
 import { ManagerFirstRun } from "../features/onboarding/ManagerFirstRun";
 import type { MissingSpreadsheetAccess } from "../services/sheets/errors";
@@ -218,8 +217,8 @@ function ManagerShell({
             ) : (
               <>
                 <p>
-                  Couldn’t load the manager dataset. Open Team setup to check the Admin workbook
-                  and team access, then try again.
+                  Couldn’t load the manager dataset. Open Team setup to check the authoritative
+                  member configurations and Task-log access, then try again.
                 </p>
                 <button className="button button--primary" type="button" onClick={onRetry}>
                   Try again
@@ -251,7 +250,6 @@ function ManagerShell({
 export type AppScreensProps =
   | { route: Extract<AppRoute, "signedOut">; props: ComponentProps<typeof SignedOutScreen> }
   | { route: Extract<AppRoute, "accessCheck"> }
-  | { route: Extract<AppRoute, "bootstrap">; props: ComponentProps<typeof BootstrapLab> }
   | { route: Extract<AppRoute, "unauthorized">; props: UnauthorizedShellProps }
   | { route: Extract<AppRoute, "employeeSetup">; props: ComponentProps<typeof EmployeeConnectFlow> }
   | { route: Extract<AppRoute, "employeeWorkspace">; props: EmployeeShellProps }
@@ -271,8 +269,6 @@ export function AppScreens(screen: AppScreensProps) {
       );
     case "accessCheck":
       return <AccessCheckScreen />;
-    case "bootstrap":
-      return <BootstrapLab {...screen.props} />;
     case "unauthorized":
       return <UnauthorizedShell {...screen.props} />;
     case "employeeSetup":

@@ -7,6 +7,7 @@ dist-ssr/
 .vite/
 coverage/
 src-tauri/target/
+release/
 
 # Local environment and machine-specific config
 .env

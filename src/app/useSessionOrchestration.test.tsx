@@ -42,7 +42,6 @@ function callbacks() {
 
 beforeEach(() => {
   cache.readStoredConfig.mockReset().mockReturnValue({
-    adminSpreadsheetId: "admin",
     googleClientId: "client-id",
     googleApiKey: "key",
     googleAppId: "app"

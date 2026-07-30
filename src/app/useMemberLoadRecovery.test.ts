@@ -39,7 +39,6 @@ const session: UserSession = {
 };
 
 const config: AppConfig = {
-  adminSpreadsheetId: "https://docs.google.com/spreadsheets/d/admin-sheet/edit",
   googleClientId: "client",
   googleApiKey: "api-key",
   googleAppId: "app-id"
@@ -212,7 +211,7 @@ describe("useMemberLoadRecovery", () => {
       17
     );
     expect(mocks.invalidateDatasetCaches).toHaveBeenCalledWith(
-      "admin-sheet",
+      "lab-1",
       "Grace was deactivated in the authoritative backend."
     );
     expect(recovery.invalidateMemberConfigCache).toHaveBeenCalledOnce();

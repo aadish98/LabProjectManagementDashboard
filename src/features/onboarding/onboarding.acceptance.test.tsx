@@ -79,7 +79,6 @@ const session = {
   idToken: "id-token"
 };
 const config = {
-  adminSpreadsheetId: "admin-file",
   googleClientId: "client",
   googleApiKey: "key",
   googleAppId: "app"
@@ -93,7 +92,6 @@ function makeMembership(
     lab: {
       id: "lab",
       name: "Cell Lab",
-      adminSpreadsheetId: "admin-file",
       revision: 1,
       createdAt: now,
       createdBy: "manager",
@@ -196,8 +194,8 @@ function makeDataset(overrides: Partial<DashboardDataset> = {}): DashboardDatase
 function renderManagerWorkspace(dataset: DashboardDataset = makeDataset()) {
   const props: ComponentProps<typeof ManagerWorkspace> = {
     session,
+    labId: "lab",
     viewerRole: "manager",
-    config,
     dataset,
     visibleLabMembers: ["Ada", "Grace"],
     managerOwnLabMember: null,
@@ -284,7 +282,6 @@ describe("Onboarding acceptance criteria", () => {
         hasEmployeePrefs: true,
         employeeForceSetup: false,
         onboardingStatus: invited.member.onboarding.status,
-        canBootstrap: false
       })
     ).toBe("employeeSetup");
   });
@@ -319,7 +316,6 @@ describe("Onboarding acceptance criteria", () => {
         hasEmployeePrefs: false,
         employeeForceSetup: false,
         onboardingStatus: "invited",
-        canBootstrap: false
       })
     ).toBe("employeeSetup");
   });
@@ -377,7 +373,6 @@ describe("Onboarding acceptance criteria", () => {
         hasEmployeePrefs: true,
         employeeForceSetup: false,
         onboardingStatus: "needsColumnReview",
-        canBootstrap: false
       })
     ).toBe("employeeSetup");
   });
@@ -392,7 +387,6 @@ describe("Onboarding acceptance criteria", () => {
         hasEmployeePrefs: true,
         employeeForceSetup: false,
         onboardingStatus: "ready",
-        canBootstrap: false
       })
     ).toBe("unauthorized");
   });
@@ -418,7 +412,7 @@ describe("Onboarding acceptance criteria", () => {
     expect(screen.getByText(/Data from accessible Task-log workbooks is still shown/i)).toBeInTheDocument();
   });
 
-  it("AC08 gives managers an exact Admin and task-log first-run checklist", async () => {
+  it("AC08 gives managers an exact task-log-only first-run checklist", async () => {
     const managerMembership = makeMembership("needsPicker");
     managerMembership.member = {
       ...managerMembership.member,
@@ -432,7 +426,6 @@ describe("Onboarding acceptance criteria", () => {
       member: managerMembership.member,
       progress: {
         requiredFiles: [
-          { fileId: "admin-file", purpose: "adminWorkbook", label: "Admin workbook" },
           {
             fileId: "ada-file",
             purpose: "requiredTaskLog",
@@ -442,7 +435,7 @@ describe("Onboarding acceptance criteria", () => {
           }
         ],
         verifiedFileIds: [],
-        remainingFileIds: ["admin-file", "ada-file"],
+        remainingFileIds: ["ada-file"],
         complete: false,
         requiresColumnReview: false
       }
@@ -462,7 +455,6 @@ describe("Onboarding acceptance criteria", () => {
     );
 
     expect(await screen.findByText("Exact-file Picker checklist")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Admin workbook remaining" })).not.toBeChecked();
     expect(
       screen.getByRole("checkbox", { name: "Ada Task-log workbook remaining" })
     ).not.toBeChecked();

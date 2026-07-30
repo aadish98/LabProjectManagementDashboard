@@ -43,12 +43,6 @@ describe("manager dataset refresh", () => {
       useDatasetSync({
         session,
         sessionEmailKey: session.email,
-        config: {
-          adminSpreadsheetId: "admin",
-          googleClientId: "client",
-          googleApiKey: "key",
-          googleAppId: "app"
-        },
         viewer: {
           role: "manager",
           accessibleLabMembers: [],
@@ -69,7 +63,6 @@ describe("manager dataset refresh", () => {
         setDatasetScope,
         setLoading: vi.fn(),
         setStatus: vi.fn(),
-        setShowSetup: vi.fn(),
         setEmployeeForceSetup: vi.fn(),
         setManagerFileAccessIssue: vi.fn()
       })
@@ -104,12 +97,6 @@ describe("manager dataset refresh", () => {
       useDatasetSync({
         session,
         sessionEmailKey: session.email,
-        config: {
-          adminSpreadsheetId: "admin",
-          googleClientId: "client",
-          googleApiKey: "key",
-          googleAppId: "app"
-        },
         viewer: {
           role: "manager",
           accessibleLabMembers: [],
@@ -130,7 +117,6 @@ describe("manager dataset refresh", () => {
         setDatasetScope: vi.fn(),
         setLoading: vi.fn(),
         setStatus: vi.fn(),
-        setShowSetup: vi.fn(),
         setEmployeeForceSetup: vi.fn(),
         setManagerFileAccessIssue: vi.fn()
       })
@@ -142,10 +128,10 @@ describe("manager dataset refresh", () => {
     });
 
     expect(loadAuthoritativeManagerMembers).toHaveBeenCalledTimes(2);
-    expect(sheets.loadGoogleSheetsDataset.mock.calls[0]?.[2]).toMatchObject({
+    expect(sheets.loadGoogleSheetsDataset.mock.calls[0]?.[1]).toMatchObject({
       authoritativeMembers: first
     });
-    expect(sheets.loadGoogleSheetsDataset.mock.calls[1]?.[2]).toMatchObject({
+    expect(sheets.loadGoogleSheetsDataset.mock.calls[1]?.[1]).toMatchObject({
       authoritativeMembers: second
     });
   });

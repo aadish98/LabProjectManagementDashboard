@@ -67,13 +67,8 @@ function renderWorkspace(
 ) {
   const props: ComponentProps<typeof ManagerWorkspace> = {
     session: { email: "manager@example.com", name: "Manager", accessToken: "token" },
+    labId: "lab",
     viewerRole: "manager",
-    config: {
-      adminSpreadsheetId: "https://docs.google.com/spreadsheets/d/admin-sheet/edit",
-      googleClientId: "client",
-      googleApiKey: "key",
-      googleAppId: "app"
-    },
     dataset: makeDataset(),
     visibleLabMembers: ["Alice", "Bob"],
     managerOwnLabMember: null,
@@ -210,7 +205,7 @@ describe("ManagerWorkspace", () => {
     );
     const snapshot = JSON.parse(
       window.localStorage.getItem(
-        getManagerSnapshotKey("manager@example.com", "admin-sheet")
+        getManagerSnapshotKey("manager@example.com", "lab")
       ) as string
     ) as ManagerSnapshot;
     expect(snapshot.experiments.map((record) => record.id)).toEqual(["refreshed"]);

@@ -61,7 +61,6 @@ for variable in "${required_variables[@]}"; do
 done
 
 FIRESTORE_DATABASE_ID="${FIRESTORE_DATABASE_ID:-(default)}"
-BOOTSTRAP_CLAIM_TTL_SECONDS="${BOOTSTRAP_CLAIM_TTL_SECONDS:-600}"
 
 [[ "${GCP_PROJECT_ID}" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] || {
   printf 'GCP_PROJECT_ID is not a valid project ID: %s\n' "${GCP_PROJECT_ID}" >&2
@@ -79,12 +78,6 @@ BOOTSTRAP_CLAIM_TTL_SECONDS="${BOOTSTRAP_CLAIM_TTL_SECONDS:-600}"
   printf 'ARTIFACT_REGISTRY_REPOSITORY is invalid: %s\n' "${ARTIFACT_REGISTRY_REPOSITORY}" >&2
   exit 1
 }
-[[ "${BOOTSTRAP_CLAIM_TTL_SECONDS}" =~ ^[0-9]+$ ]] &&
-  (( BOOTSTRAP_CLAIM_TTL_SECONDS >= 60 && BOOTSTRAP_CLAIM_TTL_SECONDS <= 3600 )) || {
-  printf 'BOOTSTRAP_CLAIM_TTL_SECONDS must be between 60 and 3600.\n' >&2
-  exit 1
-}
-
 expected_suffix="@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
 for service_account in \
   "${CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT}" \
@@ -212,4 +205,4 @@ gcloud builds submit "${repo_root}" \
   --region="${GCP_REGION}" \
   --service-account="projects/${GCP_PROJECT_ID}/serviceAccounts/${CLOUD_BUILD_SERVICE_ACCOUNT}" \
   --config="${backend_dir}/cloudbuild.yaml" \
-  --substitutions="_REGION=${GCP_REGION},_SERVICE=${CLOUD_RUN_SERVICE},_AR_REPOSITORY=${ARTIFACT_REGISTRY_REPOSITORY},_RUNTIME_SERVICE_ACCOUNT=${CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT},_FIRESTORE_DATABASE_ID=${FIRESTORE_DATABASE_ID},_GOOGLE_OAUTH_CLIENT_IDS_B64=${oauth_client_ids_b64},_CORS_ALLOWED_ORIGINS_B64=${cors_origins_b64},_BOOTSTRAP_CLAIM_TTL_SECONDS=${BOOTSTRAP_CLAIM_TTL_SECONDS},_RELEASE_SHA=${release_sha}"
+  --substitutions="_REGION=${GCP_REGION},_SERVICE=${CLOUD_RUN_SERVICE},_AR_REPOSITORY=${ARTIFACT_REGISTRY_REPOSITORY},_RUNTIME_SERVICE_ACCOUNT=${CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT},_FIRESTORE_DATABASE_ID=${FIRESTORE_DATABASE_ID},_GOOGLE_OAUTH_CLIENT_IDS_B64=${oauth_client_ids_b64},_CORS_ALLOWED_ORIGINS_B64=${cors_origins_b64},_RELEASE_SHA=${release_sha}"

@@ -40,7 +40,6 @@ const membership = {
   lab: {
     id: "lab",
     name: "Lab",
-    adminSpreadsheetId: "admin",
     revision: 1,
     createdAt: "2026-07-14T18:00:00.000Z",
     createdBy: "manager",
@@ -59,7 +58,6 @@ describe("team setup draft recovery", () => {
     const user = userEvent.setup();
     const props = {
       config: {
-        adminSpreadsheetId: "admin",
         googleClientId: "client",
         googleApiKey: "key",
         googleAppId: "app"

@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Lab Workflow Desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.labworkflow.desktop",
   "build": {
     "beforeDevCommand": "npm run web:dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run frontend:build",
+    "beforeBuildCommand": "npm run frontend:build:configured",
     "frontendDist": "../dist"
   },
   "plugins": {
@@ -38,7 +38,11 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "nsis"],
+    "targets": [
+      "app",
+      "dmg",
+      "nsis"
+    ],
     "createUpdaterArtifacts": true,
     "category": "Productivity",
     "shortDescription": "Employee submission forms and manager dashboards for the lab workflow.",

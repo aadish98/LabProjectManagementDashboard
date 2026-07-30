@@ -2,13 +2,9 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExperimentDraft, ExperimentRecord } from "../domain/experiment";
 import { SheetRevisionConflictError } from "../services/sheets/errors";
-import {
-  ManagerAuditAppendError,
-  useTaskMutations
-} from "./useTaskMutations";
+import { useTaskMutations } from "./useTaskMutations";
 
 const sheets = vi.hoisted(() => ({
-  appendRunLogEntry: vi.fn(),
   backfillTaskIdsInSheet: vi.fn(),
   completeTaskInSheet: vi.fn(),
   createTaskInSheet: vi.fn(),
@@ -18,10 +14,6 @@ const sheets = vi.hoisted(() => ({
   updateTaskInSheet: vi.fn()
 }));
 
-vi.mock("../services/sheets/admin", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../services/sheets/admin")>()),
-  appendRunLogEntry: sheets.appendRunLogEntry
-}));
 vi.mock("../services/sheets/dataset", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../services/sheets/dataset")>()),
   loadGoogleSheetsDataset: sheets.loadGoogleSheetsDataset
@@ -89,12 +81,6 @@ function renderMutations(setStatus = vi.fn()) {
   const hook = renderHook(() =>
     useTaskMutations({
       session,
-      config: {
-        adminSpreadsheetId: "https://docs.google.com/spreadsheets/d/admin/edit",
-        googleClientId: "client",
-        googleApiKey: "key",
-        googleAppId: "app"
-      },
       employeePrefs: null,
       employeeLabMember: "",
       managerRole: "manager",
@@ -117,12 +103,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   sheets.createTaskInSheet.mockResolvedValue("task-created");
   sheets.updateTaskInSheet.mockResolvedValue(undefined);
-  sheets.appendRunLogEntry.mockResolvedValue(undefined);
   sheets.loadGoogleSheetsDataset.mockResolvedValue(emptyDataset);
 });
 
 describe("manager task mutation integration", () => {
-  it("uses backend accepted mapping and appends actor, destination, and changed fields", async () => {
+  it("uses the backend-accepted mapping without touching the Admin workbook", async () => {
     const { result, resolveMemberTaskPrefs } = renderMutations();
 
     await act(async () => {
@@ -135,29 +120,9 @@ describe("manager task mutation integration", () => {
       session,
       draft
     );
-    expect(sheets.appendRunLogEntry).toHaveBeenCalledWith(
-      expect.objectContaining({ adminSpreadsheetId: expect.any(String) }),
-      session,
-      expect.objectContaining({
-        actorEmail: "manager@example.com",
-        memberId: "member-ada",
-        taskId: "task-created",
-        workbook: "backend-sheet#Accepted Tasks",
-        action: "task.created",
-        changedFields: [
-          "project",
-          "experiment",
-          "timeEstimate",
-          "startDateRaw",
-          "projectedEndDateRaw",
-          "status",
-          "comments"
-        ]
-      })
-    );
   });
 
-  it("audits updates by stable Task ID and exact changed fields", async () => {
+  it("updates by stable Task ID", async () => {
     const previous: ExperimentRecord = {
       ...draft,
       id: "task-1",
@@ -178,17 +143,6 @@ describe("manager task mutation integration", () => {
       session,
       { taskId: "task-1", expectedRevision: 4 },
       next
-    );
-    expect(sheets.appendRunLogEntry).toHaveBeenCalledWith(
-      expect.anything(),
-      session,
-      expect.objectContaining({
-        actorEmail: "manager@example.com",
-        memberId: "member-ada",
-        taskId: "task-1",
-        action: "task.updated",
-        changedFields: ["status", "comments"]
-      })
     );
   });
 
@@ -228,7 +182,7 @@ describe("manager task mutation integration", () => {
     expect(sheets.updateTaskInSheet).not.toHaveBeenCalled();
   });
 
-  it("refreshes latest data, preserves the draft path, and skips audit on conflict", async () => {
+  it("refreshes latest data and preserves the draft path on conflict", async () => {
     const previous: ExperimentRecord = {
       ...draft,
       id: "task-1",
@@ -268,7 +222,6 @@ describe("manager task mutation integration", () => {
     expect(setDataset).toHaveBeenCalledWith(
       expect.objectContaining({ experiments: [latest] })
     );
-    expect(sheets.appendRunLogEntry).not.toHaveBeenCalled();
     expect(setStatus).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "error",
@@ -278,24 +231,4 @@ describe("manager task mutation integration", () => {
     );
   });
 
-  it("surfaces audit failure as a committed task change without claiming rollback", async () => {
-    sheets.appendRunLogEntry.mockRejectedValueOnce(new Error("RunLog offline"));
-    const setStatus = vi.fn();
-    const { result } = renderMutations(setStatus);
-
-    await expect(
-      act(async () => {
-        await result.current.handleManagerCreateTask(entry, draft);
-      })
-    ).rejects.toBeInstanceOf(ManagerAuditAppendError);
-
-    expect(setStatus).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "error",
-        text: expect.stringMatching(
-          /saved.*audit append failed.*not rolled back.*refresh/i
-        )
-      })
-    );
-  });
 });

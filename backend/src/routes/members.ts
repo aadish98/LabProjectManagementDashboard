@@ -85,7 +85,12 @@ export function membersRouter(repository: OnboardingRepository): Router {
 
   router.get("/me/memberships", async (request, response) => {
     const memberships = await repository.listMembershipsForEmail(request.identity.email);
-    response.json({ memberships });
+    response.json({
+      memberships: memberships.map(({ lab, ...membership }) => {
+        const { adminSpreadsheetId: _operatorOnly, ...clientLab } = lab;
+        return { ...membership, lab: clientLab };
+      })
+    });
   });
 
   router.get("/labs/:labId/members", async (request, response) => {

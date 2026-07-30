@@ -29,7 +29,7 @@ Firestore is authoritative for labs, memberships, roles, invitations, onboarding
 - Active Firestore membership determines employee, manager, and PI capabilities.
 - A pending invitation can route only the matching verified Google email into onboarding.
 - An account with neither membership nor invitation is unauthorized.
-- The only bootstrap path is a short-lived backend claim after the founding account proves it can read an intentionally empty canonical `Roles` sheet.
+- Lab creation and roster import are operator-only commands. The distributed desktop app cannot bootstrap a lab or ask an unrecognized employee to open the Admin workbook.
 
 Google Drive access is a separate data-access gate. Managers provision exact-file sharing through the backend; each invited account must then select its exact configured file through Picker because `drive.file` grants are account- and file-specific.
 
@@ -43,14 +43,25 @@ Google Drive access is a separate data-access gate. Managers provision exact-fil
    - `VITE_BACKEND_BASE_URL` (HTTPS Cloud Run service URL)
    - `VITE_GOOGLE_CLIENT_ID` / `VITE_GOOGLE_CLIENT_SECRET` (Desktop app OAuth client; secret required by Google's token endpoint with PKCE)
    - `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID` (Cloud project number)
-   - `VITE_ADMIN_SPREADSHEET_ID` (manager-only; URL or ID)
-6. Create the canonical admin workbook and empty `Roles` sheet; share it with the founding operator.
-7. Sign in through Tauri and create/claim the short-lived bootstrap claim.
-8. In Team setup, create invitations with explicit roles, exact workbook ID, tab, and proposed column map.
-9. Have the invited account accept the invitation.
-10. A Firestore-authorized manager/PI provisions the exact required Drive files.
-11. The invited account selects the exact configured workbook in Picker.
-12. The invited account reviews and accepts the shared column map; onboarding becomes `ready`.
+6. Create the canonical Admin workbook with `Roles` and `SheetRegistry`; share it only with operator accounts that run the roster import.
+7. Authenticate Application Default Credentials with the read-only Sheets and Cloud Platform scopes shown by `npm --prefix backend run roster:import -- --help`.
+8. Preview the import, then repeat the reviewed command with `--apply`. The command creates the lab, active membership, task-log config, and audit documents in Firestore.
+9. A Firestore-authorized manager/PI provisions the exact required Drive files.
+10. Each employee signs in normally, selects only their configured task-log workbook in Picker, and reviews its column map.
+
+Example preview (omit `--lab-id` to derive a stable UUID from the project and Admin workbook):
+
+```sh
+npm --prefix backend run roster:import -- \
+  --project YOUR_PROJECT_ID \
+  --spreadsheet-id YOUR_ADMIN_SPREADSHEET_ID \
+  --lab-name "Your Lab" \
+  --actor-email operator@example.com
+```
+
+The importer is dry-run by default, validates the whole roster before writing,
+and preserves existing Firestore members that are absent from the sheet. Add
+`--apply` only after reviewing the JSON plan.
 
 The enforced lifecycle is `invited → needsSharing → needsPicker → needsColumnReview → ready`. `blocked` preserves the prior state and a specific recovery action. See [docs/PILOT_MIGRATION_RUNBOOK.md](docs/PILOT_MIGRATION_RUNBOOK.md) before piloting existing lab data.
 

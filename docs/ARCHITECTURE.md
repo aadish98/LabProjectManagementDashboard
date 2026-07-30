@@ -3,8 +3,8 @@
 ## Authority boundaries
 
 - **Firestore is authoritative** for labs, memberships, roles, invitations, onboarding state, immutable IDs, workbook/tab configuration, shared column maps, revisions, idempotency records, and onboarding events.
-- **Google Sheets is authoritative** for task-log contents, profiles, feedback, and run-log workflow data.
-- **`SheetRegistry` and `Roles` are compatibility mirrors.** Their `memberId` and `revision` fields support targeted retries, but their readability or contents never grant runtime authorization.
+- **Google Sheets is authoritative** for task-log contents.
+- **The Admin workbook is an operator-only import source.** The desktop client never reads it, asks users to select it, or receives its file ID.
 - **Local storage is a cache only.** It contains non-secret configuration, identity metadata, preferences, and visibly stale dataset caches.
 
 The Tauri client calls the Cloud Run onboarding API with a Google ID token. The API verifies issuer, audience, signature, expiry, and verified email, then authorizes against active Firestore membership. Cloud Run is designed for Firestore access only; its runtime identity does not receive Google Drive access.
@@ -31,7 +31,9 @@ The normal lifecycle is:
 
 `blocked` records the prior state, owner, reason, and next action. Resume returns to that recorded state. Creation uses idempotency keys; mutations require expected revisions and reject stale clients.
 
-The first lab is created only through a short-lived bootstrap claim after the backend verifies that the claiming Google account can read an intentionally empty canonical `Roles` sheet. Other file-read failures never imply a role.
+An operator creates or synchronizes a lab by running the roster importer against
+the canonical `Roles` and `SheetRegistry` tabs. The importer validates the full
+input before atomically writing Firestore. There is no desktop bootstrap route.
 
 Members, invitations, labs, and task records use stable IDs. Firestore member configs hold the exact spreadsheet ID, active tab, proposed map, and member-accepted map. The accepted shared map is used on other devices; it is not reconstructed from a local-only preference.
 
@@ -47,11 +49,11 @@ Sharing and Picker are distinct. Drive sharing lets the account open the file; `
 
 Manager data loads are member-isolated. Authentication failures stop the load, while missing grants, stale tabs, and member-specific Sheets errors become explicit issues. Successful members remain visible, and last-known records for failed members may be merged from the per-viewer cache with stale markers.
 
-Existing task updates re-find the stable Task ID and verify the expected `Task Revision` immediately before writing, then update only changed mapped cells while incrementing the revision in the same Sheets `values.batchUpdate`. Missing metadata is added/backfilled for populated legacy rows before mutation. This detects moved rows and revisions that changed before the final verification read, but Sheets provides no compare-and-swap precondition: another writer can still change the row between that read and the batch commit. Admin compatibility writes preflight immutable member ID and revision, then commit only that member's registry/role ranges. Firestore mutations use transactions and revision checks.
+Existing task updates re-find the stable Task ID and verify the expected `Task Revision` immediately before writing, then update only changed mapped cells while incrementing the revision in the same Sheets `values.batchUpdate`. Missing metadata is added/backfilled for populated legacy rows before mutation. This detects moved rows and revisions that changed before the final verification read, but Sheets provides no compare-and-swap precondition: another writer can still change the row between that read and the batch commit. Firestore mutations use transactions and revision checks.
 
 ## Remaining constraints
 
-- Firestore and Google Sheets cannot share one transaction. Firestore stays authoritative; compatibility mirror failure must be visible and retryable.
+- Firestore and Google Sheets cannot share one transaction. Firestore remains the runtime authority, and operator imports must be reviewed before applying.
 - Picker grants are per account and exact file and cannot be centrally transferred.
 - Duplicate, missing, externally deleted, or manually corrupted Task IDs/Revisions require repair. Multi-writer reconciliation remains necessary for the final Sheets read-to-batch race.
 - Formatted Sheets values, especially ambiguous dates, still need validation.

@@ -70,8 +70,8 @@ export function ManagerFirstRun({
         <section className="callout callout--warning stack-xs" aria-label="Manager first-run status">
           <strong>Manager first-run · Column review remaining</strong>
           <p>
-            Exact Admin and active Task-log file selections are complete. Confirm the personal
-            Task-log column map before entering the manager workspace.
+            Exact required Task-log file selections are complete. Confirm the personal Task-log
+            column map before entering the manager workspace.
           </p>
         </section>
         <EmployeeConnectFlow
