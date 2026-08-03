@@ -1,11 +1,25 @@
 import { normalizeEmail, normalizeLabMember, type RoleCapability } from "../../domain/access";
-import type { RegistryRowProblem, SheetRegistryEntry } from "../../domain/experiment";
-import type {
-  AdminWorkbookOverview,
-  RegistryWriteRow,
-  RoleWriteRow
-} from "../../services/sheets/admin";
 import type { OnboardingState } from "../../domain/onboarding";
+
+/**
+ * Flattened projections of a PersonDraft. These are not persisted anywhere:
+ * Firestore is authoritative for membership, and `splitForSave` exists only to
+ * produce a stable dirty-check signature for the member editor.
+ */
+export interface RegistryWriteRow {
+  memberId: string;
+  labMember: string;
+  taskLogUrl: string;
+  activeSheetName: string;
+  active: boolean;
+}
+
+export interface RoleWriteRow {
+  memberId: string;
+  email: string;
+  role: "manager" | "employee" | "pi";
+  labMember?: string;
+}
 
 export interface TabOption {
   sheetId: number;
@@ -97,79 +111,6 @@ export function makePerson(base: Partial<PersonDraft>): PersonDraft {
 
 export function blankPerson(): PersonDraft {
   return makePerson({});
-}
-
-function registryEntryToBase(entry: SheetRegistryEntry): Partial<PersonDraft> {
-  return {
-    id: entry.memberId?.trim() || nextDraftId("member"),
-    name: entry.labMember,
-    taskLogUrl: entry.taskLogUrl,
-    taskLogTitle: "",
-    activeSheetName: entry.activeSheetName,
-    active: entry.active
-  };
-}
-
-function registryProblemToBase(problem: RegistryRowProblem): Partial<PersonDraft> {
-  return {
-    id: problem.memberId?.trim() || nextDraftId("member"),
-    name: problem.labMember,
-    taskLogUrl: problem.taskLogUrl,
-    taskLogTitle: "",
-    activeSheetName: problem.activeSheetName,
-    active: problem.active
-  };
-}
-
-export function buildPeopleFromOverview(overview: AdminWorkbookOverview): PersonDraft[] {
-  const people: PersonDraft[] = [];
-  const peopleByName = new Map<string, PersonDraft>();
-  const peopleByEmail = new Map<string, PersonDraft>();
-  const peopleByMemberId = new Map<string, PersonDraft>();
-
-  const remember = (person: PersonDraft) => {
-    const nameKey = normalizeLabMember(person.name);
-    const emailKey = normalizeEmail(person.email);
-    if (person.id) peopleByMemberId.set(person.id, person);
-    if (nameKey) peopleByName.set(nameKey, person);
-    if (emailKey) peopleByEmail.set(emailKey, person);
-  };
-
-  for (const base of [
-    ...overview.registry.map(registryEntryToBase),
-    ...overview.registryProblems.map(registryProblemToBase)
-  ]) {
-    const person = makePerson(base);
-    people.push(person);
-    remember(person);
-  }
-
-  for (const role of overview.roles) {
-    const labMemberKey = normalizeLabMember(role.labMember ?? "");
-    const emailKey = normalizeEmail(role.email);
-    let person =
-      (role.memberId ? peopleByMemberId.get(role.memberId) : undefined) ??
-      (labMemberKey ? peopleByName.get(labMemberKey) : undefined) ??
-      (emailKey ? peopleByEmail.get(emailKey) : undefined);
-
-    if (!person) {
-      person = makePerson({
-        id: role.memberId?.trim() || nextDraftId("member"),
-        name: role.labMember?.trim() || deriveNameFromEmail(role.email),
-        email: role.email
-      });
-      people.push(person);
-    }
-
-    person.email = person.email.trim() || role.email;
-    if (!person.name.trim()) {
-      person.name = role.labMember?.trim() || deriveNameFromEmail(role.email);
-    }
-    person.roles = { ...person.roles, [role.role]: true };
-    remember(person);
-  }
-
-  return people;
 }
 
 export function validatePeople(people: PersonDraft[]): PeopleValidation {

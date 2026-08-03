@@ -15,7 +15,7 @@ The browser-hosted Vite build is not a supported product or authentication envir
 ## Security and data flow
 
 - Google sign-in requests only `openid`, `email`, `profile`, and per-file `drive.file`.
-- OAuth uses the fixed `127.0.0.1:53682` loopback callback, state, and PKCE S256 for a Desktop OAuth client. Google's token endpoint still requires the Desktop client secret alongside PKCE.
+- OAuth uses the fixed `127.0.0.1:53682` loopback callback, state, and PKCE S256 for a Desktop OAuth client. Google's token endpoint requires the Desktop client secret alongside PKCE, so the backend brokers the exchange (`/auth/google/token/*`) and reads the secret from Secret Manager; no client secret is compiled into the desktop bundle.
 - The desktop client sends the short-lived Google ID token to Cloud Run for server-side audience, issuer, signature, and expiry verification.
 - Cloud Run stores application records and account metadata in Firestore. It does not persist Google Drive access or refresh tokens.
 - Drive access tokens are processed in memory only while servicing a Sheets/Picker operation and are then discarded.
@@ -41,7 +41,7 @@ Google Drive access is a separate data-access gate. Managers provision exact-fil
 4. Create a browser API key for Picker; restrict it to your app origins and the Picker API.
 5. Copy `.env.example` → `.env` and set:
    - `VITE_BACKEND_BASE_URL` (HTTPS Cloud Run service URL)
-   - `VITE_GOOGLE_CLIENT_ID` / `VITE_GOOGLE_CLIENT_SECRET` (Desktop app OAuth client; secret required by Google's token endpoint with PKCE)
+   - `VITE_GOOGLE_CLIENT_ID` (Desktop app OAuth client). Do **not** set `VITE_GOOGLE_CLIENT_SECRET`: the secret belongs in Secret Manager for the backend, and the build fails if it is present.
    - `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID` (Cloud project number)
 6. Create the canonical Admin workbook with `Roles` and `SheetRegistry`; share it only with operator accounts that run the roster import.
 7. Authenticate Application Default Credentials with the read-only Sheets and Cloud Platform scopes shown by `npm --prefix backend run roster:import -- --help`.
@@ -69,7 +69,7 @@ For a non-mutating legacy inventory, run `npm run pilot:inventory -- /path/to/re
 
 ## Manager setup
 
-Bootstrap configuration lives in `.env`; membership and onboarding records live in Firestore. Team setup writes revisioned Firestore records first. Compatibility rows in `SheetRegistry`/`Roles` use immutable member IDs and backend revisions, and are not authorization inputs.
+Bootstrap configuration lives in `.env`; membership and onboarding records live in Firestore. Team setup writes revisioned Firestore records through the backend API and does not touch Google Sheets.
 
 Manager dashboards load available task logs independently. A failed, stale-tab, or missing-Picker workbook produces a member-specific issue while successfully loaded members remain visible; the last-known cache can fill failed members and is visibly marked stale.
 
@@ -94,44 +94,37 @@ Lab members need:
 
 Accepted column maps are shared in Firestore and keyed by stable member/workbook IDs. Device caches improve startup but are not authoritative.
 
-## Compatibility workbook structure
+## Admin workbook structure (operator import only)
 
-Fixed tab names: `SheetRegistry`, `Roles`, `RunLog`, `Feedback`.
+The Admin workbook is read **only** by the `roster:import` operator command, to seed a lab into Firestore. The desktop app contains no code that reads or writes it: it never opens the workbook, asks a user to select it, or receives its file ID. Nothing in the app writes these tabs back, so the workbook is an input snapshot, not a mirror.
 
-`SheetRegistry` and `Roles` are compatibility mirrors for Sheets workflows. They are not role or onboarding authority. Firestore records carry immutable UUIDs and revisions; compatibility rows carry the corresponding `memberId` and `revision` so updates can target one member safely.
+The importer reads two tabs, `Roles` and `SheetRegistry`. Headers normalize to lowercase alphanumeric (`Lab Member` → `labmember`).
+
+### Roles
+
+| Column | Content |
+|--------|---------|
+| `email` | Google account email (required) |
+| `role` | `employee`, `manager`, or `pi` (required) |
+| `labmember` | Display name; links the row to a `SheetRegistry` task-log row (required) |
+| `memberid` | Optional stable member ID; derived deterministically when absent |
+| `active` | Optional; blank counts as active |
+
+One person may have several rows to hold several roles.
 
 ### SheetRegistry
 
-Headers normalize to lowercase alphanumeric (`Lab Member` → `labmember`). Each **active** row needs:
+Required for every `employee`. Managers and PIs need a row only if they also keep a task log.
 
 | Column | Content |
 |--------|---------|
-| `memberid` | Stable Firestore member ID |
-| `labmember` | Display name |
-| `tasklogurl` | Employee task-log URL or spreadsheet ID |
-| `activesheet` | Tab name inside that workbook |
-| `active` | `true`, `yes`, `y`, or `1` (case-insensitive) |
-| `revision` | Last mirrored authoritative revision |
+| `labmember` | Display name, matched against `Roles` (required) |
+| `tasklogurl` | Task-log URL or spreadsheet ID (required) |
+| `activesheet` | Tab name inside that workbook (required) |
+| `active` | `true`, `yes`, `y`, or `1`; blank counts as active |
+| `memberid` | Optional stable member ID |
 
-Bad rows surface as callouts in the manager dashboard rather than failing silently.
-
-### Roles compatibility mirror
-
-| Column | Content |
-|--------|---------|
-| `memberid` | Stable Firestore member ID |
-| `email` | Google account email |
-| `role` | `employee`, `manager`, or `pi` |
-| `labmember` | Optional display name — links the role row to a `SheetRegistry` task-log row |
-| `active` | Compatibility active flag |
-| `revision` | Last mirrored authoritative revision |
-
-The same member ID may have multiple role rows. Runtime authorization always comes from the active Firestore membership.
-
-### RunLog / Feedback (optional)
-
-- **RunLog** columns: `timestamp`, `labmember`, `tasklogurl`, `status`, `note`
-- **Feedback** column A = lab member; columns B+ = timestamped feedback runs
+The import is preview-only until `--apply`, and validation failures are reported together before Firestore is contacted.
 
 ## Task-log sheets
 
@@ -215,7 +208,7 @@ Per-device `localStorage` keys (see `src/services/cache.ts`) contain app config,
 ## Remaining platform constraints
 
 - Picker authorization is per Google account and exact file; sharing alone does not create a `drive.file` grant.
-- Google Sheets and Firestore cannot participate in one transaction. Firestore remains authoritative; compatibility mirror failures must stay visible and retryable.
+- Google Sheets and Firestore cannot participate in one transaction. They are kept on separate concerns instead: Firestore is authoritative for membership and onboarding, Sheets holds only task-log content, and no runtime path writes both.
 - Task ID plus Task Revision verification detects moved rows and revisions that changed before the final read. Duplicate, missing, or corrupted metadata requires repair, and Google Sheets still has an unavoidable race between that read and the subsequent batch commit.
 - Manager loads are intentionally partial. Cached rows for failed members are marked stale and must not be mistaken for a successful refresh.
 - Sheets values are formatted strings; ambiguous or invalid dates still require user correction.

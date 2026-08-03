@@ -1,41 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildPeopleFromOverview,
-  makePerson,
-  splitForSave,
-  validatePeople
-} from "./teamSetupState";
+import { makePerson, splitForSave, validatePeople } from "./teamSetupState";
 
 describe("team setup state", () => {
-  it("merges registry and role rows into one person", () => {
-    const people = buildPeopleFromOverview({
-      spreadsheetId: "admin",
-      spreadsheetTitle: "Admin",
-      setupRepairIssues: [],
-      rolesState: "canonicalNonEmpty",
-      registry: [
-        {
-          labMember: "Ada Lovelace",
-          taskLogUrl: " workbook ",
-          activeSheetName: "Tasks",
-          active: true
-        }
-      ],
-      registryProblems: [],
-      roles: [
-        { email: "ada@example.com", role: "employee", labMember: "Ada Lovelace" },
-        { email: "ada@example.com", role: "manager", labMember: "Ada Lovelace" }
-      ]
-    });
-
-    expect(people).toHaveLength(1);
-    expect(people[0]).toMatchObject({
-      name: "Ada Lovelace",
-      email: "ada@example.com",
-      roles: { employee: true, manager: true, pi: false }
-    });
-  });
-
   it("reports duplicate email-role and task-log names", () => {
     const first = makePerson({
       name: "Ada",
@@ -97,34 +63,19 @@ describe("team setup state", () => {
     });
   });
 
-  it("keeps immutable member IDs across registry and roles", () => {
-    const [person] = buildPeopleFromOverview({
-      spreadsheetId: "admin",
-      spreadsheetTitle: "Admin",
-      setupRepairIssues: [],
-      rolesState: "canonicalNonEmpty",
-      registry: [
-        {
-          memberId: "member_123",
-          labMember: "Renamed Person",
-          taskLogUrl: "workbook",
-          activeSheetName: "Tasks",
-          active: true
-        }
-      ],
-      registryProblems: [],
-      roles: [
-        {
-          memberId: "member_123",
-          email: "person@example.com",
-          role: "employee",
-          labMember: "Old Name"
-        }
-      ]
+  it("carries an immutable member ID into registry and role projections", () => {
+    const person = makePerson({
+      id: "member_123",
+      name: "Renamed Person",
+      email: "person@example.com",
+      roles: { employee: true, manager: false, pi: false },
+      taskLogUrl: "workbook",
+      activeSheetName: "Tasks"
     });
 
-    expect(person.id).toBe("member_123");
-    expect(person.email).toBe("person@example.com");
-    expect(splitForSave([person]).roleRows[0]?.memberId).toBe("member_123");
+    const { registryRows, roleRows } = splitForSave([person]);
+    expect(registryRows[0]?.memberId).toBe("member_123");
+    expect(roleRows[0]?.memberId).toBe("member_123");
+    expect(roleRows[0]?.email).toBe("person@example.com");
   });
 });

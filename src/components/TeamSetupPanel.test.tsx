@@ -4,13 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamSetupPanel } from "./TeamSetupPanel";
 
 const sheetsMocks = vi.hoisted(() => ({
-  ensureAdminWorkbookSkeleton: vi.fn(),
   analyzeEmployeeSheetHeaders: vi.fn(),
-  fetchSpreadsheetMetadata: vi.fn(),
-  mirrorMemberCompatibilityRows: vi.fn(),
-  readAdminWorkbookOverview: vi.fn(),
-  writeRegistryRows: vi.fn(),
-  writeRolesRows: vi.fn()
+  fetchSpreadsheetMetadata: vi.fn()
 }));
 
 const pickerMocks = vi.hoisted(() => ({
@@ -25,10 +20,6 @@ const apiMocks = vi.hoisted(() => ({
   reactivateMember: vi.fn()
 }));
 
-vi.mock("../services/sheets/admin", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../services/sheets/admin")>()),
-  mirrorMemberCompatibilityRows: sheetsMocks.mirrorMemberCompatibilityRows
-}));
 vi.mock("../services/sheets/metadata", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../services/sheets/metadata")>()),
   analyzeEmployeeSheetHeaders: sheetsMocks.analyzeEmployeeSheetHeaders,
@@ -51,14 +42,6 @@ describe("TeamSetupPanel", () => {
   beforeEach(() => {
     apiMocks.listMembers.mockResolvedValue({ members: [] });
     apiMocks.listInvitations.mockResolvedValue({ invitations: [] });
-    sheetsMocks.readAdminWorkbookOverview.mockResolvedValue({
-      spreadsheetId: "admin",
-      spreadsheetTitle: "Lab admin",
-      setupRepairIssues: [],
-      registry: [],
-      registryProblems: [],
-      roles: []
-    });
     pickerMocks.openSpreadsheetPicker.mockResolvedValue([
       {
         id: "task-log",
@@ -86,7 +69,6 @@ describe("TeamSetupPanel", () => {
       },
       unmappedFields: ["timeEstimate", "startDate", "projectedEndDate", "status", "schematic", "result", "dataLink", "comments", "notebookLocation"]
     });
-    sheetsMocks.mirrorMemberCompatibilityRows.mockResolvedValue(undefined);
     apiMocks.createInvitation.mockImplementation(async (_labId, input) => ({
       invitation: {
         id: "invitation",
@@ -242,7 +224,6 @@ describe("TeamSetupPanel", () => {
       experiment: { mode: "existing", header: "Experiment" },
       status: { mode: "add", header: "Status" }
     });
-    expect(sheetsMocks.mirrorMemberCompatibilityRows).not.toHaveBeenCalled();
   });
 
   it("reactivates a confirmed deactivation using the returned backend revision", async () => {

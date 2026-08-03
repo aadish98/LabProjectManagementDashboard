@@ -55,8 +55,8 @@ export const errorHandler: ErrorRequestHandler = (error, request, response, _nex
     apiError = new ApiError({
       status: 413,
       code: "REQUEST_BODY_TOO_LARGE",
-      message: "The request body exceeds the 256 KB service limit.",
-      action: "Send only the required fields and keep the JSON body at or below 256 KB."
+      message: "The request body exceeds the service limit for this route.",
+      action: "Send only the required fields and retry with a smaller JSON body."
     });
   } else if (httpErrorStatus(error) === 400 && error instanceof SyntaxError) {
     apiError = new ApiError({

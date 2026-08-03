@@ -1,5 +1,6 @@
 import { GoogleAuth } from "google-auth-library";
 import { createApp } from "./app.js";
+import { GoogleOAuthTokenBroker } from "./auth/googleTokenBroker.js";
 import { GoogleIdentityVerifier } from "./auth/verifyGoogleIdentity.js";
 import { loadConfig } from "./config.js";
 import { GoogleDrivePermissionClient } from "./drive/googleDrive.js";
@@ -17,6 +18,11 @@ const app = createApp({
   repository: new FirestoreOnboardingRepository(firestore),
   identityVerifier: new GoogleIdentityVerifier(config.googleOAuthClientIds),
   drivePermissionClient: new GoogleDrivePermissionClient(),
+  googleTokenBroker: new GoogleOAuthTokenBroker(
+    config.brokeredClientId,
+    config.googleOAuthClientSecret
+  ),
+  brokeredClientId: config.brokeredClientId,
   corsAllowedOrigins: config.corsAllowedOrigins,
   readinessCheck: async () => {
     await applicationDefaultCredentials.getClient();

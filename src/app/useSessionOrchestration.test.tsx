@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionOrchestration } from "./useSessionOrchestration";
+import { GoogleTokenBrokerError } from "../auth/googleTokenBroker";
 
 const identity = vi.hoisted(() => ({
   getFreshSession: vi.fn(),
@@ -135,5 +136,86 @@ describe("secure session orchestration", () => {
         "manager@example.com"
       )
     );
+  });
+
+  // A transient broker/Google outage previously wiped the keychain refresh
+  // token, forcing every user through full re-consent. These fence that off.
+  describe("transient sign-in service failures", () => {
+    const retryable = new GoogleTokenBrokerError({
+      code: "GOOGLE_TOKEN_ENDPOINT_UNAVAILABLE",
+      message: "The sign-in service is unreachable.",
+      action: "Retry in a moment.",
+      retryable: true
+    });
+    const terminal = new GoogleTokenBrokerError({
+      code: "GOOGLE_GRANT_REJECTED",
+      message: "Google rejected the sign-in credential.",
+      action: "Sign in again.",
+      retryable: false
+    });
+
+    it("keeps the vault when hydration hits a retryable failure", async () => {
+      identity.getFreshSession.mockRejectedValue(retryable);
+      const handlers = callbacks();
+      const { result } = renderHook(() => useSessionOrchestration(handlers));
+
+      await waitFor(() => expect(result.current.sessionLoading).toBe(false));
+      expect(result.current.session).toBeNull();
+      expect(cache.clearStoredSessionSecurely).not.toHaveBeenCalled();
+      expect(result.current.authNotice).toContain("saved sign-in was kept");
+    });
+
+    it("still clears the vault when hydration hits a rejected credential", async () => {
+      identity.getFreshSession.mockRejectedValue(terminal);
+      const handlers = callbacks();
+      const { result } = renderHook(() => useSessionOrchestration(handlers));
+
+      await waitFor(() => expect(result.current.sessionLoading).toBe(false));
+      await waitFor(() =>
+        expect(cache.clearStoredSessionSecurely).toHaveBeenCalledWith(
+          "manager@example.com"
+        )
+      );
+      expect(result.current.authNotice).toBe(
+        "Google needs a fresh sign-in to continue."
+      );
+    });
+
+    it("keeps the vault when withFreshSession hits a retryable failure", async () => {
+      const handlers = callbacks();
+      const { result } = renderHook(() => useSessionOrchestration(handlers));
+      await waitFor(() => expect(result.current.session).toEqual(freshSession));
+      cache.clearStoredSessionSecurely.mockClear();
+
+      identity.getFreshSession.mockRejectedValue(retryable);
+      await act(async () => {
+        await expect(
+          result.current.withFreshSession(async () => "unreachable")
+        ).rejects.toThrow();
+      });
+
+      expect(cache.clearStoredSessionSecurely).not.toHaveBeenCalled();
+      expect(result.current.authNotice).toContain("saved sign-in was kept");
+    });
+
+    it("still clears the vault when withFreshSession hits a rejected credential", async () => {
+      const handlers = callbacks();
+      const { result } = renderHook(() => useSessionOrchestration(handlers));
+      await waitFor(() => expect(result.current.session).toEqual(freshSession));
+      cache.clearStoredSessionSecurely.mockClear();
+
+      identity.getFreshSession.mockRejectedValue(terminal);
+      await act(async () => {
+        await expect(
+          result.current.withFreshSession(async () => "unreachable")
+        ).rejects.toThrow();
+      });
+
+      await waitFor(() =>
+        expect(cache.clearStoredSessionSecurely).toHaveBeenCalledWith(
+          "manager@example.com"
+        )
+      );
+    });
   });
 });

@@ -4,6 +4,7 @@ import {
   revokeGoogleSession,
   signInWithGoogle
 } from "../auth/googleIdentity";
+import { isRetryableBrokerError } from "../auth/googleTokenBroker";
 import type { AppConfig, UserSession } from "../domain/app";
 import {
   clearStoredSessionSecurely,
@@ -105,6 +106,18 @@ export function useSessionOrchestration(callbacks: SessionCallbacks) {
         rememberSession(freshSession);
         callbacksRef.current.onSessionStarted();
       } catch (error) {
+        // A transient broker or Google outage must not cost the user their
+        // refresh token; only a rejected credential justifies clearing it.
+        if (isRetryableBrokerError(error)) {
+          if (!cancelled) {
+            sessionRef.current = null;
+            setSession(null);
+            setAuthNotice(
+              "The sign-in service is unreachable. Your saved sign-in was kept; try again in a moment."
+            );
+          }
+          return;
+        }
         try {
           await clearStoredSessionSecurely(storedSession?.email);
         } catch (vaultError) {
@@ -156,7 +169,14 @@ export function useSessionOrchestration(callbacks: SessionCallbacks) {
       let freshSession: UserSession;
       try {
         freshSession = await getFreshSession(activeSession, config.googleClientId);
-      } catch {
+      } catch (error) {
+        // Keep the vault intact when the failure is transient (see hydration).
+        if (isRetryableBrokerError(error)) {
+          setAuthNotice(
+            "The sign-in service is unreachable. Your saved sign-in was kept; try again in a moment."
+          );
+          throw new GoogleSheetsAuthError();
+        }
         await clearForFreshSignIn(
           activeSession,
           "Google needs a fresh sign-in to continue."
@@ -175,7 +195,13 @@ export function useSessionOrchestration(callbacks: SessionCallbacks) {
             { ...freshSession, accessTokenExpiresAt: 0 },
             config.googleClientId
           );
-        } catch {
+        } catch (retryError) {
+          if (isRetryableBrokerError(retryError)) {
+            setAuthNotice(
+              "The sign-in service is unreachable. Your saved sign-in was kept; try again in a moment."
+            );
+            throw new GoogleSheetsAuthError();
+          }
           await clearForFreshSignIn(
             freshSession,
             "Google needs a fresh sign-in to continue."

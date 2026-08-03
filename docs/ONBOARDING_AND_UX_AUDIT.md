@@ -1,5 +1,13 @@
 # Lab Workflow Desktop: Onboarding, Access, UI, and UX Audit
 
+> **Historical record — partially superseded as of 2026-08-03.** This document describes the
+> codebase as it stood on 2026-07-15 and is preserved unedited as audit evidence. Two things have
+> since changed: the Google Sheets compatibility mirrors (`SheetRegistry`/`Roles` writes, and every
+> `src/services/sheets/admin/*` path cited below) were unreachable and have been deleted, so the app
+> no longer touches a roster workbook at run time; and the desktop OAuth token exchange now goes
+> through the backend broker rather than a bundled client secret. See `docs/ARCHITECTURE.md` for
+> current behavior.
+
 Date: 2026-07-15  
 Closeout scope: Implementation audit of the React/Tauri desktop client, Firestore-authoritative onboarding API, Google authentication and Picker flows, Google Sheets task data and compatibility mirrors, manager/member workspaces, setup forms, accessibility primitives, and shared styling.  
 Status: All 56 original UX findings are preserved and accounted for below. Code implementation, local automated verification, one real disposable macOS Keychain primitive, and release-real-account/platform evidence are reported as separate evidence classes. External release gates remain open.

@@ -10,7 +10,6 @@ const env = {
 const required = [
   "VITE_BACKEND_BASE_URL",
   "VITE_GOOGLE_CLIENT_ID",
-  "VITE_GOOGLE_CLIENT_SECRET",
   "VITE_GOOGLE_API_KEY",
   "VITE_GOOGLE_APP_ID"
 ];
@@ -19,6 +18,16 @@ const missing = required.filter((name) => !env[name]?.trim());
 if (missing.length > 0) {
   process.stderr.write(
     `Missing required desktop build variables: ${missing.join(", ")}\n`
+  );
+  process.exit(1);
+}
+
+// The backend brokers Google's token endpoint, so the bundle must never receive
+// a client secret. Catches a stale .env or a leftover CI variable.
+if (env.VITE_GOOGLE_CLIENT_SECRET?.trim()) {
+  process.stderr.write(
+    "VITE_GOOGLE_CLIENT_SECRET must not be set: the desktop bundle must not receive a Google client secret. " +
+      "Store it in Secret Manager as GOOGLE_OAUTH_CLIENT_SECRET for the backend instead.\n"
   );
   process.exit(1);
 }

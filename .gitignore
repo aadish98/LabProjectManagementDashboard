@@ -16,6 +16,9 @@ release/
 *.local
 
 # Local data, generated decks, and Office temp files
+# Operator roster workbooks hold real member emails and live task-log URLs.
+AlladaLabLogList.xlsx
+*.roster.xlsx
 Data/
 presentations/*.pptx
 ~$*.docx

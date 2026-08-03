@@ -9,7 +9,8 @@ import type {
 } from "../domain/onboarding";
 import type { RoleCapability } from "../domain/access";
 
-export const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_BASE_URL ?? "").trim().replace(/\/+$/, "");
+export { BACKEND_BASE_URL } from "./backendBaseUrl";
+import { BACKEND_BASE_URL } from "./backendBaseUrl";
 
 type ApiErrorBody = {
   error?: {

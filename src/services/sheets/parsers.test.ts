@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { ExperimentDraft } from "../../domain/experiment";
-import { backfillMemberIds, parseRegistry, parseRoles } from "./admin";
 import { profileRowsFromValues } from "./profile";
 import {
   buildAppendedStruckCell,
@@ -27,49 +26,6 @@ const draft: ExperimentDraft = {
   notebookLocation: "NB-7",
   comments: "Ready"
 };
-
-describe("admin sheet parsers", () => {
-  it("separates valid registry entries from actionable row problems", () => {
-    const result = parseRegistry([
-      ["Lab Member", "Task Log URL", "Active Sheet", "Active"],
-      ["Ada", "https://docs.google.com/spreadsheets/d/ada-log/edit", "Tasks", "yes"],
-      ["Grace", "", "Tasks", "TRUE"],
-      ["", "", "", ""]
-    ]);
-
-    expect(result.entries).toEqual([
-      {
-        labMember: "Ada",
-        taskLogUrl:
-          "https://docs.google.com/spreadsheets/d/ada-log/edit",
-        activeSheetName: "Tasks",
-        active: true,
-        revision: 0
-      }
-    ]);
-    expect(result.problems).toMatchObject([
-      { rowNumber: 3, issues: ["missingTaskLogUrl"] }
-    ]);
-  });
-
-  it("normalizes valid role rows and skips invalid roles", () => {
-    expect(
-      parseRoles([
-        ["Email", "Role", "Lab Member"],
-        [" PI@EXAMPLE.COM ", "PI", ""],
-        ["bad@example.com", "owner", ""]
-      ])
-    ).toEqual([
-      {
-        email: "pi@example.com",
-        role: "pi",
-        labMember: undefined,
-        active: true,
-        revision: 0
-      }
-    ]);
-  });
-});
 
 describe("task and profile pure helpers", () => {
   it("keeps duplicate legacy aliases synchronized when building rows", () => {
@@ -214,22 +170,5 @@ describe("task and profile pure helpers", () => {
       { rowNumber: 2, taskId: "task_new", taskRevision: 1 },
       { rowNumber: 3, taskRevision: 1 }
     ]);
-  });
-
-  it("backfills one member ID into legacy registry and role links", () => {
-    const result = backfillMemberIds(
-      [
-        {
-          labMember: "Ada",
-          taskLogUrl: "workbook",
-          activeSheetName: "Tasks",
-          active: true
-        }
-      ],
-      [{ email: "ada@example.com", role: "employee", labMember: "Ada" }]
-    );
-
-    expect(result.registry[0]?.memberId).toMatch(/^member_/);
-    expect(result.roles[0]?.memberId).toBe(result.registry[0]?.memberId);
   });
 });

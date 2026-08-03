@@ -73,9 +73,9 @@
           Google ID tokens. Firestore stores labs, stable member and invitation IDs, normalized
           emails, roles, workbook IDs, tabs, proposed and accepted shared column maps, onboarding
           status, revisions, idempotency records, and onboarding audit events. Workflow task
-          contents remain in Google Sheets controlled by the user or the user's organization;
-          compatibility rows in <code>SheetRegistry</code> and <code>Roles</code> are not
-          authorization sources.
+          contents remain in Google Sheets controlled by the user or the user's organization.
+          The application does not read or write any roster or permissions workbook at run time;
+          Firestore is its only source of membership and authorization.
         </p>
         <p>
           Google Drive access tokens are processed in Cloud Run memory only for the requested

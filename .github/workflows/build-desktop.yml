@@ -19,7 +19,6 @@ jobs:
     env:
       VITE_BACKEND_BASE_URL: ${{ inputs.backend_base_url || vars.VITE_BACKEND_BASE_URL || secrets.VITE_BACKEND_BASE_URL }}
       VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
-      VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.VITE_GOOGLE_CLIENT_SECRET }}
       VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY || secrets.VITE_GOOGLE_API_KEY }}
       VITE_GOOGLE_APP_ID: ${{ vars.VITE_GOOGLE_APP_ID || secrets.VITE_GOOGLE_APP_ID }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -57,13 +56,17 @@ jobs:
           const required = [
             "VITE_BACKEND_BASE_URL",
             "VITE_GOOGLE_CLIENT_ID",
-            "VITE_GOOGLE_CLIENT_SECRET",
             "VITE_GOOGLE_API_KEY",
             "VITE_GOOGLE_APP_ID"
           ];
           const missing = required.filter((name) => !process.env[name]?.trim());
           if (missing.length) {
             console.error(`Missing required build variables: ${missing.join(", ")}`);
+            process.exit(1);
+          }
+          // The backend brokers Google's token endpoint; no secret may reach the bundle.
+          if (process.env.VITE_GOOGLE_CLIENT_SECRET?.trim()) {
+            console.error("VITE_GOOGLE_CLIENT_SECRET must not be set for desktop builds.");
             process.exit(1);
           }
           let backend;

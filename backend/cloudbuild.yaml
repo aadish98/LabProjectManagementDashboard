@@ -11,6 +11,10 @@ substitutions:
   _RUNTIME_SERVICE_ACCOUNT: ''
   _FIRESTORE_DATABASE_ID: (default)
   _GOOGLE_OAUTH_CLIENT_IDS_B64: ''
+  _GOOGLE_OAUTH_TOKEN_CLIENT_ID: ''
+  # Secret Manager secret NAME, never the value. The value is mounted at run
+  # time via --set-secrets so it never enters the service spec or build logs.
+  _GOOGLE_CLIENT_SECRET_NAME: google-oauth-client-secret
   _CORS_ALLOWED_ORIGINS_B64: ''
   _RELEASE_SHA: manual
 
@@ -171,7 +175,8 @@ steps:
           --max-instances=10 \
           --startup-probe='httpGet.path=/health,httpGet.port=8080,initialDelaySeconds=0,timeoutSeconds=3,periodSeconds=5,failureThreshold=12' \
           --liveness-probe='httpGet.path=/health,httpGet.port=8080,initialDelaySeconds=0,timeoutSeconds=3,periodSeconds=30,failureThreshold=3' \
-          --set-env-vars="^@^GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@FIRESTORE_DATABASE_ID=${_FIRESTORE_DATABASE_ID}@GOOGLE_OAUTH_CLIENT_IDS=$${oauth_client_ids}@CORS_ALLOWED_ORIGINS=$${cors_origins}" \
+          --set-env-vars="^@^GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@FIRESTORE_DATABASE_ID=${_FIRESTORE_DATABASE_ID}@GOOGLE_OAUTH_CLIENT_IDS=$${oauth_client_ids}@GOOGLE_OAUTH_TOKEN_CLIENT_ID=${_GOOGLE_OAUTH_TOKEN_CLIENT_ID}@CORS_ALLOWED_ORIGINS=$${cors_origins}" \
+          --set-secrets="GOOGLE_OAUTH_CLIENT_SECRET=${_GOOGLE_CLIENT_SECRET_NAME}:latest" \
           --labels="component=backend,managed-by=cloud-build,release-sha=${_RELEASE_SHA}" \
           --ingress=all \
           --allow-unauthenticated \
@@ -214,6 +219,17 @@ steps:
         grep -Eqi '^cache-control:[[:space:]]*no-store' "$$headers"
         grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' "$$headers"
         grep -Eqi '^x-request-id:[[:space:]]*[^[:space:]]+' "$$headers"
+        # The token broker must be mounted and reachable WITHOUT a token. An
+        # empty body must be rejected as a bad request, never as unauthorized:
+        # a 401 here would mean it landed behind the /v1 authenticate guard.
+        # Deliberately not a real grant -- no credential is exercised.
+        broker_status="$$(curl --silent --show-error \
+          --output /dev/null \
+          --write-out '%{http_code}' \
+          --header 'Content-Type: application/json' \
+          --data '{}' \
+          "$${candidate_url}/auth/google/token/refresh")"
+        test "$$broker_status" = 400
         printf '\nCandidate URL passed: %s\n' "$$candidate_url"
     waitFor: [deploy-cloud-run, wait-invitation-index, ensure-membership-index]
 
@@ -269,5 +285,14 @@ steps:
         grep -Eqi '^cache-control:[[:space:]]*no-store' "$$headers"
         grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' "$$headers"
         grep -Eqi '^x-request-id:[[:space:]]*[^[:space:]]+' "$$headers"
+        # Same broker reachability assertion as the candidate check: mounted,
+        # unauthenticated, and rejecting an empty body as 400 rather than 401.
+        broker_status="$$(curl --silent --show-error \
+          --output /dev/null \
+          --write-out '%{http_code}' \
+          --header 'Content-Type: application/json' \
+          --data '{}' \
+          "$${service_url}/auth/google/token/refresh")"
+        test "$$broker_status" = 400
         printf '\nDeployed URL: %s\n' "$$service_url"
     waitFor: [promote-candidate]

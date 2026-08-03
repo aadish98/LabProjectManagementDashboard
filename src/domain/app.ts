@@ -1,18 +1,5 @@
 export type UserRole = "guest" | "unauthorized" | "employee" | "manager" | "pi";
 
-/**
- * Fixed compatibility-workbook tab names. Firestore is authoritative for
- * access and onboarding; these tabs remain workflow/mirroring conventions.
- */
-export const ADMIN_TAB_NAMES = {
-  registry: "SheetRegistry",
-  runLog: "RunLog",
-  feedback: "Feedback",
-  roles: "Roles"
-} as const;
-
-export type AdminTabName = (typeof ADMIN_TAB_NAMES)[keyof typeof ADMIN_TAB_NAMES];
-
 /** Non-secret device connection configuration for Google APIs. */
 export interface AppConfig {
   googleClientId: string;

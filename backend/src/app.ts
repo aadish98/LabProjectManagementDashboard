@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import express, { type RequestHandler } from "express";
 import { authenticate } from "./auth/middleware.js";
+import type { GoogleTokenBroker } from "./auth/googleTokenBroker.js";
 import type { IdentityVerifier } from "./auth/verifyGoogleIdentity.js";
 import type { DrivePermissionClient } from "./drive/googleDrive.js";
 import type { OnboardingRepository } from "./firestore/repository.js";
 import { ApiError, errorHandler, notFoundHandler } from "./http/errors.js";
 import { drivePermissionsRouter } from "./routes/drivePermissions.js";
+import { googleTokenRouter } from "./routes/googleToken.js";
 import { invitationsRouter } from "./routes/invitations.js";
 import { membersRouter } from "./routes/members.js";
 
@@ -13,6 +15,8 @@ export interface AppDependencies {
   repository: OnboardingRepository;
   identityVerifier: IdentityVerifier;
   drivePermissionClient: DrivePermissionClient;
+  googleTokenBroker: GoogleTokenBroker;
+  brokeredClientId: string;
   corsAllowedOrigins: string[];
   readinessCheck: () => Promise<void>;
 }
@@ -20,7 +24,18 @@ export interface AppDependencies {
 export function createApp(dependencies: AppDependencies): express.Express {
   const app = express();
   app.disable("x-powered-by");
+  // Cloud Run appends the caller address as the last X-Forwarded-For entry.
+  // Without this, request.ip is the internal front end and per-IP rate limiting
+  // collapses into a single shared bucket.
+  app.set("trust proxy", 1);
   app.use(requestMetadata(dependencies.corsAllowedOrigins));
+
+  // Mounted before the 256kb parser so the broker keeps its own tighter limit.
+  app.use(
+    "/auth/google/token",
+    googleTokenRouter(dependencies.googleTokenBroker, dependencies.brokeredClientId)
+  );
+
   app.use(express.json({ limit: "256kb" }));
 
   // Avoid Cloud Run reserved paths that end in "z" (e.g. /healthz is intercepted

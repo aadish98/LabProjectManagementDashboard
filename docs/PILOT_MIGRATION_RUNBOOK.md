@@ -78,7 +78,7 @@ Capture without tokens or spreadsheet contents:
 - Preserve onboarding events and incident evidence; do not rewrite audit history.
 - Firestore hard deletion is not a self-service application feature. If legally or operationally required, use an approved administrator procedure and verify all collections/indexed records affected.
 
-Compatibility mirror failure does not make Sheets authoritative. Repair/retry the mirror from Firestore after resolving the cause.
+Sheets never becomes authoritative for membership. The application writes no roster data to Google Sheets; if the Admin workbook and Firestore disagree, correct the workbook and re-run `roster:import`, or fix the member through Team setup.
 
 ## Exit criteria
 

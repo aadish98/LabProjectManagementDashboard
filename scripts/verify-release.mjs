@@ -66,6 +66,8 @@ function offlineDeployEnvironment() {
     CLOUD_BUILD_SERVICE_ACCOUNT: "build@lab-workflow-local.iam.gserviceaccount.com",
     ARTIFACT_REGISTRY_REPOSITORY: "cloud-run",
     GOOGLE_OAUTH_CLIENT_IDS: "123456789-local.apps.googleusercontent.com",
+    GOOGLE_OAUTH_TOKEN_CLIENT_ID: "123456789-local.apps.googleusercontent.com",
+    GOOGLE_OAUTH_CLIENT_SECRET_NAME: "google-oauth-client-secret",
     CORS_ALLOWED_ORIGINS: "https://local.invalid"
   };
 }
@@ -76,7 +78,9 @@ try {
   runNpm("Audit structure", ["run", "check:audit-structure"]);
   runNpm("Portable font policy", ["run", "check:fonts"]);
   runNpm("Terminology policy", ["run", "check:terminology"]);
-  runNpm("Token hygiene policy", ["run", "check:token-hygiene"]);
+  // Token hygiene now scans dist/ too, so it must run on fresh build output.
+  // frontend:build invokes check:token-hygiene after vite build; running it
+  // here as well would scan a stale bundle from a previous release.
   runNpm("Frontend production build", ["run", "frontend:build"]);
 
   const inventory = run(

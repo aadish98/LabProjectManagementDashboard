@@ -5,10 +5,27 @@
 - Enable **Google Sheets API**, **Google Drive API**, and **Google Picker API**. Drive permission provisioning uses the signed-in manager/PI's delegated token; the Cloud Run runtime service account must not receive Drive access.
 - Configure OAuth consent with scopes: `openid`, `email`, `profile`, `drive.file`.
 - Create a **Desktop app** OAuth client and add redirect URI: `http://127.0.0.1:53682`.
-- Configure the Desktop client ID and Desktop client secret in the app/CI. Google's token endpoint still requires that secret alongside PKCE; do not commit the real secret value.
+- Configure the Desktop client ID in the app/CI. Google's token endpoint requires the Desktop client secret alongside PKCE, but the backend supplies it: store the secret in Secret Manager (see §2) and never place it in `.env`, CI variables, or the desktop bundle.
 - Create a browser API key for Picker and restrict it to the Picker API and your app origins.
 
 ## 2. Deploy the Backend
+
+One-time: store the Desktop OAuth client secret in Secret Manager and grant the runtime service account read access. Use `--data-file=-` so the value never lands in shell history.
+
+```bash
+printf '%s' "$DESKTOP_CLIENT_SECRET" | gcloud secrets create google-oauth-client-secret \
+  --project="$GCP_PROJECT_ID" --replication-policy=automatic --data-file=-
+gcloud secrets add-iam-policy-binding google-oauth-client-secret \
+  --project="$GCP_PROJECT_ID" \
+  --member="serviceAccount:$CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT" \
+  --role=roles/secretmanager.secretAccessor
+gcloud services enable secretmanager.googleapis.com --project="$GCP_PROJECT_ID"
+```
+
+Then set `GOOGLE_OAUTH_CLIENT_SECRET_NAME` (the secret's **name**, not its value) and `GOOGLE_OAUTH_TOKEN_CLIENT_ID` alongside the other deploy variables. The preflight rejects a `GOOGLE_OAUTH_CLIENT_SECRET` value in the environment, and Cloud Run mounts the secret directly via `--set-secrets`, so it never enters the service spec or build logs.
+
+**Rotating the secret is a breaking change for older installers.** Desktop builds at 0.1.1 and earlier exchange tokens directly with Google using their own embedded copy. Confirm every device runs a brokered build before rotating; afterwards those installs fail both grants with `invalid_client` and cannot recover by signing in again. Cloud Run resolves `:latest` at instance start, so always cut a new revision after `gcloud secrets versions add` rather than relying on the version bump alone.
+
 Run `backend/scripts/deploy.sh --check` first. It is a non-mutating preflight for the project, APIs, service accounts, Firestore database, Artifact Registry, OAuth audiences, CORS origins, indexes, and deployment files. Only an explicitly approved `--deploy` invocation submits Cloud Build.
 
 The Cloud Run runtime service account needs Firestore access but must not receive Drive access. Every `/v1` request verifies a Google ID token. Drive provisioning receives the signed-in manager/PI's short-lived Drive token in a separate request header and discards it after the operation. Tokens must never enter Firestore, environment variables, logs, or errors.
@@ -21,10 +38,11 @@ Create `.env` from `.env.example` and fill:
 ```bash
 VITE_BACKEND_BASE_URL=https://YOUR_CLOUD_RUN_SERVICE
 VITE_GOOGLE_CLIENT_ID=
-VITE_GOOGLE_CLIENT_SECRET=
 VITE_GOOGLE_API_KEY=
 VITE_GOOGLE_APP_ID=
 ```
+
+`VITE_GOOGLE_CLIENT_SECRET` is intentionally absent. The backend brokers Google's token endpoint, and `check:build-config` fails the build if the variable is set.
 
 The Admin workbook ID is intentionally not embedded in or returned to the
 distributed app. Desktop membership and role checks use Firestore only.

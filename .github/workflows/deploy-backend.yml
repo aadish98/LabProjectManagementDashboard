@@ -79,6 +79,10 @@ jobs:
       ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
       FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID }}
       GOOGLE_OAUTH_CLIENT_IDS: ${{ vars.GOOGLE_OAUTH_CLIENT_IDS }}
+      GOOGLE_OAUTH_TOKEN_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_TOKEN_CLIENT_ID }}
+      # Secret Manager secret NAME only. The secret value is never exposed to
+      # this workflow; Cloud Run mounts it directly from Secret Manager.
+      GOOGLE_OAUTH_CLIENT_SECRET_NAME: ${{ vars.GOOGLE_OAUTH_CLIENT_SECRET_NAME }}
       CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
     steps:
       - uses: actions/checkout@v4

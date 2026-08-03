@@ -152,9 +152,13 @@ Configure the protected GitHub environment `backend-production` with required re
 - `ARTIFACT_REGISTRY_REPOSITORY`
 - `FIRESTORE_DATABASE_ID`
 - `GOOGLE_OAUTH_CLIENT_IDS`
+- `GOOGLE_OAUTH_TOKEN_CLIENT_ID` (which audience the token broker exchanges for; must appear in `GOOGLE_OAUTH_CLIENT_IDS`)
+- `GOOGLE_OAUTH_CLIENT_SECRET_NAME` (Secret Manager secret **name**, never its value)
 - `CORS_ALLOWED_ORIGINS`
 
 These values are identifiers/configuration, not service-account JSON secrets. The manual workflow requires the operator to type the exact protected project ID and explicitly enable deployment.
+
+The one genuine secret, the Desktop OAuth client secret, is never passed through this script or Cloud Build substitutions. It lives in Secret Manager and is mounted into the container as `GOOGLE_OAUTH_CLIENT_SECRET` via `--set-secrets`, so it stays out of the Cloud Run service spec, `gcloud run services describe`, and build logs. The runtime service account needs `roles/secretmanager.secretAccessor` on it; the preflight verifies both the secret and that binding, and fails if a `GOOGLE_OAUTH_CLIENT_SECRET` **value** is present in the environment.
 
 ## Health, readiness, and smoke checks
 
@@ -163,6 +167,8 @@ Cloud Run startup and liveness probes call `/health`. That endpoint reports only
 `/readyz` performs a Firestore document read using the runtime identity. It returns `200` only when the authoritative store is reachable and returns typed `503 SERVICE_NOT_READY` for a missing database, wrong project, unavailable service, or insufficient runtime IAM.
 
 Cloud Build retrieves the deployed service URL and retries both checks. It also requires an unauthenticated discovery request to return `401 ID_TOKEN_REQUIRED` with `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and an `X-Request-Id`, both before and after traffic promotion.
+
+It additionally posts an empty body to `/auth/google/token/refresh` and requires `400`. That proves the token-broker routes are mounted and reachable without a credential; a `401` would mean they had drifted behind the `/v1` authenticate guard, which would break refresh for every client. No real grant is exercised, so the smoke check needs no credentials.
 
 ```sh
 curl --fail --retry 10 https://SERVICE_URL/health

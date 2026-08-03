@@ -35,13 +35,43 @@ function member(roles: Member["roles"]): Member {
   };
 }
 
+const BROKERED_CLIENT_ID = "1234567890-desktop.apps.googleusercontent.com";
+
+function brokerStub() {
+  return {
+    exchangeAuthorizationCode: vi.fn().mockResolvedValue({
+      accessToken: "google-access-token",
+      tokenType: "Bearer",
+      expiresInSeconds: 3599,
+      idToken: "google-id-token",
+      refreshToken: "google-refresh-token"
+    }),
+    refreshAccessToken: vi.fn().mockResolvedValue({
+      accessToken: "google-access-token-2",
+      tokenType: "Bearer",
+      expiresInSeconds: 3599,
+      idToken: "google-id-token-2"
+    })
+  };
+}
+
+function validCodeExchange() {
+  return {
+    clientId: BROKERED_CLIENT_ID,
+    code: "authorization-code",
+    codeVerifier: "a".repeat(43),
+    redirectUri: "http://127.0.0.1:53682"
+  };
+}
+
 function appWith(
   repositoryOverrides: Partial<OnboardingRepository> = {},
   readinessCheck: () => Promise<void> = async () => {},
   drivePermissionClient = {
     createUserPermission: vi.fn(),
     deletePermission: vi.fn()
-  }
+  },
+  googleTokenBroker: ReturnType<typeof brokerStub> = brokerStub()
 ) {
   const repository = {
     listInvitationsForEmail: vi.fn().mockResolvedValue([]),
@@ -59,6 +89,8 @@ function appWith(
       })
     },
     drivePermissionClient,
+    googleTokenBroker,
+    brokeredClientId: BROKERED_CLIENT_ID,
     corsAllowedOrigins: ["tauri://localhost"],
     readinessCheck
   });
@@ -383,5 +415,168 @@ describe("HTTP API", () => {
     expect([first.body.error?.code, second.body.error?.code]).toContain(
       "REVISION_CONFLICT"
     );
+  });
+});
+
+describe("Google token broker routes", () => {
+  it("exchanges an authorization code without any Authorization header", async () => {
+    const broker = brokerStub();
+    const response = await request(appWith({}, async () => {}, undefined, broker))
+      .post("/auth/google/token/authorization-code")
+      .send(validCodeExchange());
+
+    expect(response.status).toBe(200);
+    expect(broker.exchangeAuthorizationCode).toHaveBeenCalledWith({
+      code: "authorization-code",
+      codeVerifier: "a".repeat(43),
+      redirectUri: "http://127.0.0.1:53682"
+    });
+    expect(Object.keys(response.body).sort()).toEqual([
+      "accessToken",
+      "expiresInSeconds",
+      "idToken",
+      "refreshToken",
+      "tokenType"
+    ]);
+    expect(response.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("is not behind the /v1 authenticate guard", async () => {
+    const rejected = await request(appWith())
+      .post("/auth/google/token/authorization-code")
+      .set("Authorization", "Bearer definitely-not-valid")
+      .send(validCodeExchange());
+    expect(rejected.status).toBe(200);
+
+    // The guard itself must still be in force for the versioned API.
+    const guarded = await request(appWith()).get("/v1/me/invitations");
+    expect(guarded.status).toBe(401);
+    expect(guarded.body.error.code).toBe("ID_TOKEN_REQUIRED");
+  });
+
+  it("refreshes with an expired ID token present", async () => {
+    const broker = brokerStub();
+    const response = await request(appWith({}, async () => {}, undefined, broker))
+      .post("/auth/google/token/refresh")
+      .set("Authorization", "Bearer expired-id-token")
+      .send({ clientId: BROKERED_CLIENT_ID, refreshToken: "stored-refresh-token" });
+
+    expect(response.status).toBe(200);
+    expect(broker.refreshAccessToken).toHaveBeenCalledWith({
+      refreshToken: "stored-refresh-token"
+    });
+  });
+
+  it("rejects an unknown client or redirect without calling Google", async () => {
+    const broker = brokerStub();
+    const app = appWith({}, async () => {}, undefined, broker);
+
+    const wrongClient = await request(app)
+      .post("/auth/google/token/authorization-code")
+      .send({ ...validCodeExchange(), clientId: "attacker.apps.googleusercontent.com" });
+    expect(wrongClient.status).toBe(400);
+    expect(wrongClient.body.error.code).toBe("UNKNOWN_OAUTH_CLIENT");
+
+    const wrongRedirect = await request(app)
+      .post("/auth/google/token/authorization-code")
+      .send({ ...validCodeExchange(), redirectUri: "http://evil.example.com/cb" });
+    expect(wrongRedirect.status).toBe(400);
+    expect(wrongRedirect.body.error.code).toBe("UNSUPPORTED_REDIRECT_URI");
+
+    expect(broker.exchangeAuthorizationCode).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed PKCE verifier", async () => {
+    const response = await request(appWith())
+      .post("/auth/google/token/authorization-code")
+      .send({ ...validCodeExchange(), codeVerifier: "too-short" });
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_REQUEST");
+  });
+
+  it("maps a rejected grant to 401 without echoing Google's description", async () => {
+    const broker = brokerStub();
+    broker.exchangeAuthorizationCode.mockRejectedValue(
+      new ApiError({
+        status: 401,
+        code: "GOOGLE_GRANT_REJECTED",
+        message: "Google rejected the sign-in credential.",
+        action: "Sign in with Google again."
+      })
+    );
+    const response = await request(appWith({}, async () => {}, undefined, broker))
+      .post("/auth/google/token/authorization-code")
+      .send(validCodeExchange());
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toMatchObject({
+      code: "GOOGLE_GRANT_REJECTED",
+      retryable: false
+    });
+    expect(JSON.stringify(response.body)).not.toContain("Bad Request");
+    expect(JSON.stringify(response.body)).not.toContain("invalid_grant");
+  });
+
+  it("marks a Google outage retryable so the client keeps its refresh token", async () => {
+    const broker = brokerStub();
+    broker.refreshAccessToken.mockRejectedValue(
+      new ApiError({
+        status: 503,
+        code: "GOOGLE_TOKEN_ENDPOINT_UNAVAILABLE",
+        message: "Google's token endpoint is unreachable.",
+        action: "Retry in a moment.",
+        retryable: true
+      })
+    );
+    const response = await request(appWith({}, async () => {}, undefined, broker))
+      .post("/auth/google/token/refresh")
+      .send({ clientId: BROKERED_CLIENT_ID, refreshToken: "stored-refresh-token" });
+
+    expect(response.status).toBe(503);
+    expect(response.body.error).toMatchObject({
+      code: "GOOGLE_TOKEN_ENDPOINT_UNAVAILABLE",
+      retryable: true
+    });
+  });
+
+  it("rate limits a single caller and returns Retry-After", async () => {
+    const app = appWith();
+    const callFrom = (ip: string) =>
+      request(app)
+        .post("/auth/google/token/refresh")
+        .set("X-Forwarded-For", ip)
+        .send({ clientId: BROKERED_CLIENT_ID, refreshToken: "r" });
+
+    let last = await callFrom("203.0.113.7");
+    for (let attempt = 1; attempt < 21; attempt += 1) {
+      last = await callFrom("203.0.113.7");
+    }
+
+    expect(last.status).toBe(429);
+    expect(last.body.error).toMatchObject({
+      code: "TOO_MANY_TOKEN_REQUESTS",
+      retryable: true
+    });
+    expect(Number(last.headers["retry-after"])).toBeGreaterThan(0);
+
+    // Per-IP, not global: a different caller is unaffected below the total ceiling.
+    const other = await callFrom("198.51.100.4");
+    expect(other.status).toBe(200);
+  });
+
+  it("rejects an oversized broker body", async () => {
+    const response = await request(appWith())
+      .post("/auth/google/token/authorization-code")
+      .send({ ...validCodeExchange(), code: "x".repeat(9000) });
+    expect(response.status).toBe(413);
+    expect(response.body.error.code).toBe("REQUEST_BODY_TOO_LARGE");
+  });
+
+  it("404s an unknown broker path", async () => {
+    const response = await request(appWith())
+      .post("/auth/google/token/nonsense")
+      .send({});
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("ROUTE_NOT_FOUND");
   });
 });

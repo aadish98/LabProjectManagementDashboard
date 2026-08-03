@@ -9,7 +9,21 @@ import {
   revokeGoogleSession,
   signInWithGoogle
 } from "./googleIdentity";
+import { GoogleTokenBrokerError } from "./googleTokenBroker";
 import { tauriAuthPlatform } from "../platform/tauri/auth";
+
+vi.mock("../services/backendBaseUrl", () => ({
+  BACKEND_BASE_URL: "https://backend.test"
+}));
+
+const BROKER_ORIGIN = "https://backend.test";
+
+function tokenResponse(payload: Record<string, unknown>): Response {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -65,60 +79,101 @@ describe("Google desktop identity", () => {
     ).toThrow(/invalid state/i);
   });
 
-  it("sends PKCE token exchange with the Google Desktop client secret", () => {
+  it("builds broker payloads that carry no client secret", () => {
     const exchange = buildAuthorizationCodeTokenRequest(
       "client-id",
       "authorization-code",
-      "verifier",
-      "desktop-client-secret"
+      "verifier"
     );
-    expect(Object.fromEntries(exchange)).toEqual({
-      client_id: "client-id",
-      client_secret: "desktop-client-secret",
+    expect(exchange).toEqual({
+      clientId: "client-id",
       code: "authorization-code",
-      code_verifier: "verifier",
-      grant_type: "authorization_code",
-      redirect_uri: "http://127.0.0.1:53682"
+      codeVerifier: "verifier",
+      redirectUri: "http://127.0.0.1:53682"
     });
 
-    const refresh = buildRefreshTokenRequest(
-      "client-id",
-      "refresh-token",
-      "desktop-client-secret"
-    );
-    expect(Object.fromEntries(refresh)).toEqual({
-      client_id: "client-id",
-      client_secret: "desktop-client-secret",
-      grant_type: "refresh_token",
-      refresh_token: "refresh-token"
+    const refresh = buildRefreshTokenRequest("client-id", "refresh-token");
+    expect(refresh).toEqual({
+      clientId: "client-id",
+      refreshToken: "refresh-token"
     });
+
+    for (const payload of [exchange, refresh]) {
+      expect(payload).not.toHaveProperty("client_secret");
+      expect(payload).not.toHaveProperty("clientSecret");
+      expect(JSON.stringify(payload)).not.toContain("GOCSPX");
+    }
   });
 
   it("captures a refreshed ID token and keeps the refresh token", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            access_token: "new-access",
-            id_token: "new-id",
-            expires_in: 3600
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          }
-        )
-      )
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        tokenResponse({ accessToken: "new-access", idToken: "new-id", expiresInSeconds: 3600 })
+      );
+    vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      refreshGoogleAccessToken("client-id", "refresh-token", "desktop-client-secret")
+      refreshGoogleAccessToken("client-id", "refresh-token")
     ).resolves.toMatchObject({
       accessToken: "new-access",
       idToken: "new-id",
       refreshToken: "refresh-token"
     });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${BROKER_ORIGIN}/auth/google/token/refresh`);
+    expect(init.method).toBe("POST");
+    expect(String(init.body)).not.toContain("GOCSPX");
+  });
+
+  it("surfaces a retryable broker failure so the caller can keep its refresh token", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "GOOGLE_TOKEN_ENDPOINT_UNAVAILABLE",
+              message: "unreachable",
+              action: "Retry.",
+              retryable: true
+            }
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        )
+      )
+    );
+
+    const error = await refreshGoogleAccessToken("client-id", "refresh-token").catch(
+      (thrown: unknown) => thrown
+    );
+    expect(error).toBeInstanceOf(GoogleTokenBrokerError);
+    expect(error).toMatchObject({ retryable: true });
+  });
+
+  it("marks a rejected grant terminal", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "GOOGLE_GRANT_REJECTED",
+              message: "Google rejected the sign-in credential.",
+              action: "Sign in again.",
+              retryable: false
+            }
+          }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        )
+      )
+    );
+
+    const error = await refreshGoogleAccessToken("client-id", "refresh-token").catch(
+      (thrown: unknown) => thrown
+    );
+    expect(error).toMatchObject({ code: "GOOGLE_GRANT_REJECTED", retryable: false });
   });
 
   it("captures the initial ID token and requests consent only after a missing refresh token", async () => {
@@ -133,37 +188,26 @@ describe("Google desktop identity", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            access_token: "first-access",
-            id_token: "first-id",
-            expires_in: 3600
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        )
+        tokenResponse({
+          accessToken: "first-access",
+          idToken: "first-id",
+          expiresInSeconds: 3600
+        })
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            access_token: "second-access",
-            id_token: "second-id",
-            refresh_token: "refresh-token",
-            expires_in: 3600
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        )
+        tokenResponse({
+          accessToken: "second-access",
+          idToken: "second-id",
+          refreshToken: "refresh-token",
+          expiresInSeconds: 3600
+        })
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ email: "member@example.com", name: "Member" }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        )
+        tokenResponse({ email: "member@example.com", name: "Member" })
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      signInWithGoogle("client-id", { clientSecret: "desktop-client-secret" })
-    ).resolves.toMatchObject({
+    await expect(signInWithGoogle("client-id")).resolves.toMatchObject({
       email: "member@example.com",
       accessToken: "second-access",
       idToken: "second-id",
@@ -172,23 +216,23 @@ describe("Google desktop identity", () => {
     expect(authorizationUrls).toHaveLength(2);
     expect(new URL(authorizationUrls[0]).searchParams.has("prompt")).toBe(false);
     expect(new URL(authorizationUrls[1]).searchParams.get("prompt")).toBe("consent");
+
+    // Both exchanges go to the broker, never to Google's token endpoint.
+    const exchangeCalls = fetchMock.mock.calls.slice(0, 2) as [string, RequestInit][];
+    for (const [url, init] of exchangeCalls) {
+      expect(url).toBe(`${BROKER_ORIGIN}/auth/google/token/authorization-code`);
+      expect(String(init.body)).not.toContain("GOCSPX");
+    }
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes("oauth2.googleapis.com/token"))
+    ).toBe(false);
   });
 
   it("refreshes when an access token exists without an ID token", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            access_token: "new-access",
-            id_token: "new-id",
-            expires_in: 3600
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          }
-        )
+        tokenResponse({ accessToken: "new-access", idToken: "new-id", expiresInSeconds: 3600 })
       )
     );
 
@@ -201,13 +245,42 @@ describe("Google desktop identity", () => {
           refreshToken: "refresh-token",
           accessTokenExpiresAt: Date.now() + 3600_000
         },
-        "client-id",
-        "desktop-client-secret"
+        "client-id"
       )
     ).resolves.toMatchObject({
       accessToken: "new-access",
       idToken: "new-id"
     });
+  });
+
+  it("honours the 60s refresh buffer", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        tokenResponse({ accessToken: "new-access", idToken: "new-id", expiresInSeconds: 3600 })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const base = {
+      email: "member@example.com",
+      name: "Member",
+      accessToken: "current-access",
+      idToken: "current-id",
+      refreshToken: "refresh-token"
+    };
+
+    const stillValid = await getFreshSession(
+      { ...base, accessTokenExpiresAt: Date.now() + 90_000 },
+      "client-id"
+    );
+    expect(stillValid.accessToken).toBe("current-access");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const nearExpiry = await getFreshSession(
+      { ...base, accessTokenExpiresAt: Date.now() + 30_000 },
+      "client-id"
+    );
+    expect(nearExpiry.accessToken).toBe("new-access");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("revokes the refresh token in preference to the access token", async () => {
